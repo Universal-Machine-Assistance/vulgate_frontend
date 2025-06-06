@@ -57,10 +57,8 @@ import {
   faArrowRight,
   faQuestionCircle
 } from '@fortawesome/free-solid-svg-icons';
-import successNotificationSound from './assets/sounds/success_notification.mp3';
-
 // Import Greb logo
-const GrebLogo = require('./GREB LOGO_ with White.png');
+const GrebLogo = require('./greb_logo_white.png');
 
 // Constants
 const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
@@ -613,7 +611,7 @@ const App: React.FC = () => {
 
   // Fetch books on initial load
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/v1/books/")
+    fetch(`${API_BASE_URL}/books/`)
       .then((res) => res.json())
       .then((data) => setBooks(data))
       .catch((err) => console.error("Error fetching books:", err));
@@ -621,7 +619,7 @@ const App: React.FC = () => {
 
   // Fetch chapters when book changes
   useEffect(() => {
-    fetch(`http://127.0.0.1:8000/api/v1/books/abbr/${selectedBookAbbr}`)
+    fetch(`${API_BASE_URL}/books/abbr/${selectedBookAbbr}`)
       .then((res) => res.json())
       .then((data) => {
         const chaps = Array.from({ length: data.chapter_count }, (_, i) => i + 1);
@@ -632,7 +630,7 @@ const App: React.FC = () => {
 
   // Fetch verses when chapter changes
   useEffect(() => {
-    fetch(`http://127.0.0.1:8000/api/v1/verses/by-reference/${selectedBookAbbr}/${currentChapter}?skip=0&limit=100`)
+    fetch(`${API_BASE_URL}/verses/by-reference/${selectedBookAbbr}/${currentChapter}?skip=0&limit=100`)
       .then((res) => res.json())
       .then((data) => setVerses(data))
       .catch((err) => console.error("Error fetching verses:", err));
