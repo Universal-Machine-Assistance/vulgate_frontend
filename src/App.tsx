@@ -354,7 +354,7 @@ const getBookCategoryColor = (bookName: string) => {
   const historical = ['Jos', 'Jdc', 'Rt', '1Sm', '2Sm', '1Rg', '2Rg', '1Chr', '2Chr', 'Esr', 'Ne', 'Tb', 'Jdt', 'Est', '1Mac', '2Mac'];
   const wisdom = ['Job', 'Ps', 'Pr', 'Qo', 'Ct', 'Ws', 'Si'];
   const prophets = ['Is', 'Jr', 'Lm', 'Ba', 'Ez', 'Dn', 'Os', 'Jl', 'Am', 'Abd', 'Jon', 'Mi', 'Na', 'Hab', 'So', 'Ag', 'Za', 'Ml'];
-  const gospels = ['Mt', 'Mc', 'Lc', 'Jn'];
+  const gospels = ['Mt', 'Mc', 'Lc', 'Jo'];
   const epistles = ['Act', 'Rm', '1Cor', '2Cor', 'Gal', 'Eph', 'Ph', 'Col', '1Th', '2Th', '1Tm', '2Tm', 'Tt', 'Phm', 'Heb', 'Jas', '1Pt', '2Pt', '1Jn', '2Jn', '3Jn', 'Jude'];
   
   if (pentateuch.includes(bookName)) return 'bg-red-100 hover:bg-red-200';
@@ -1579,9 +1579,9 @@ const GlobalEditComponent: React.FC<{
 const VersePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [books, setBooks] = useState<Book[]>([]);
+  const [books, setBooks] = useState<Book[]>([]); // Initialize with empty array
   const [selectedBookAbbr, setSelectedBookAbbr] = useState<string>("Gn");
-  const [chapters, setnsaltioChapters] = useState<number[]>([]);
+  const [chapters, setChapters] = useState<number[]>([]);
   const [currentChapter, setCurrentChapter] = useState<number>(1);
   const [verses, setVerses] = useState<Verse[]>([]);
   const [selectedVerse, setSelectedVerse] = useState<Verse | null>(null);
@@ -1596,7 +1596,7 @@ const VersePage: React.FC = () => {
     jungian_layer: [],
     cosmological_layer: []
   });
-  const [isPopupVisible, setIsPopupVisible] = useState(false);
+
   const [notification, setNotification] = useState<NotificationType | null>(null);
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [recording, setRecording] = useState<Blob | null>(null);
@@ -1604,7 +1604,7 @@ const VersePage: React.FC = () => {
   const [uploadStatus, setUploadStatus] = useState<string>("");
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadSuccess, setUploadSuccess] = useState<boolean>(false);
-  const [selectedLanguage, setSelectedLanguage] = useState<Language>(LANGUAGES[0]);
+
   const [currentWord, setCurrentWord] = useState<string>('');
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const [audioSource, setAudioSource] = useState<AudioBufferSourceNode | null>(null);
@@ -1622,6 +1622,11 @@ const VersePage: React.FC = () => {
   const [isVerseLoading, setIsVerseLoading] = useState<boolean>(false);
   const [currentlyPlayingWordIndex, setCurrentlyPlayingWordIndex] = useState<number | null>(null);
   const [selectedTranslationLang, setSelectedTranslationLang] = useState<string>('en'); // Default to English
+  const [isOpenAIAvailable, setIsOpenAIAvailable] = useState<boolean>(false);
+  const [isOpenAIAnalyzing, setIsOpenAIAnalyzing] = useState<boolean>(false);
+  const [isTranslating, setIsTranslating] = useState<boolean>(false);
+  const [availableTranslations, setAvailableTranslations] = useState<{[key:string]:string}>({});
+  const [isGeneratingTranslations, setIsGeneratingTranslations] = useState(false);
   
   // Queue and editing state
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
@@ -1930,25 +1935,6 @@ const VersePage: React.FC = () => {
   // Fetch books on initial load
   useEffect(() => {
     fetch("http://127.0.0.1:8000/api/v1/books/")
-      .then((res) => res.json())
-      .then((data) => setBooks(data))
-      .catch((err) => console.error("Error fetching books:", err));
-  }, []);
-
-  // Fetch chapters when book changes
-  useEffect(() => {
-    fetch(`http://127.0.0.1:8000/api/v1/books/abbr/${selectedBookAbbr}`)
-      .then((res) => res.json())
-      .then((data) => {
-        const chaps = Array.from({ length: data.chapter_count }, (_, i) => i + 1);
-        setnsaltioChapters(chaps);
-      })
-      .catch((err) => console.error("Error fetching chapters:", err));
-  }, [selectedBookAbbr]);
-
-  // Fetch verses when chapter changes
-  useEffect(() => {
-    fetch(`http://127.0.0.1:8000/api/v1/verses/by-reference/${selectedBookAbbr}/${currentChapter}?skip=0&limit=100`)
       .then((res) => {
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`);
@@ -1956,731 +1942,75 @@ const VersePage: React.FC = () => {
         return res.json();
       })
       .then((data) => {
-        // Ensure data is an array before proceeding
         if (!Array.isArray(data)) {
-          console.warn("Expected array of verses but got:", data);
-          setVerses([]);
+          console.error("Expected array of books but got:", data);
+          setBooks([]);
           return;
         }
-        
-        setVerses(data);
-        
-        // If we have a verse from URL, select it
-        const path = location.pathname;
-        const pathParts = path.split('/').filter(part => part);
-        if (pathParts.length >= 3) {
-          const verseParam = parseInt(pathParts[2]) || 1;
-          const targetVerse = data.find((v: Verse) => v.verse_number === verseParam);
-          if (targetVerse) {
-            setSelectedVerse(targetVerse);
-          } else if (data.length > 0) {
-            setSelectedVerse(data[0]); // Fallback to first verse
-          }
-        } else if (data.length > 0 && !selectedVerse) {
-          setSelectedVerse(data[0]); // Default to first verse if none selected
-        }
+        setBooks(data);
       })
       .catch((err) => {
-        console.error("Error fetching verses:", err);
-        setVerses([]);
+        console.error("Error fetching books:", err);
+        setBooks([]);
       });
-  }, [currentChapter, selectedBookAbbr, location.pathname]);
-  
-  const loadCompleteAnalysis = async () => {
-    if (!selectedVerse) return;
-    
-    // Create consistent verse reference format: "Book Chapter:Verse"
-    const verseRef = `${selectedBookAbbr} ${currentChapter}:${selectedVerse.verse_number}`;
-    console.log(`Loading analysis for: ${verseRef}`);
-    
-    // Check if this request is already in queue
-    if (requestQueue.has(verseRef)) {
-      console.log(`Request for ${verseRef} already in queue, skipping...`);
-      return;
-    }
+  }, []);
 
-    // Rate limit: Don't make requests too frequently for the same verse
-    const now = Date.now();
-    const lastRequest = lastRequestTime[verseRef];
-    if (lastRequest && (now - lastRequest) < 5000) { // 5 second cooldown per verse
-      console.log(`Skipping ${verseRef} - too soon after last request (${((now - lastRequest) / 1000).toFixed(1)}s ago)`);
-      return;
-    }
-    
-    // Update last request time
-    setLastRequestTime(prev => ({ ...prev, [verseRef]: now }));
-
-    // Check localStorage cache first to avoid unnecessary API calls
-    const cacheKey = `verse_analysis_${verseRef}`;
-    const cachedData = localStorage.getItem(cacheKey);
-    if (cachedData) {
-      try {
-        const analysisResult = JSON.parse(cachedData);
-        console.log(`Loading ${verseRef} from localStorage cache`);
-        
-        // Process cached data same as fresh data
-        const newAnalysis: VerseAnalysis = {};
-        const newGrammarBreakdown: GrammarItem[] = [];
-
-        if (analysisResult.word_analysis && Array.isArray(analysisResult.word_analysis)) {
-          analysisResult.word_analysis.forEach((item: any) => {
-            newAnalysis[normalizeLatin(item.latin)] = {
-              latin: item.latin,
-              definition: item.definition,
-              etymology: item.etymology,
-              partOfSpeech: item.part_of_speech,
-              morphology: item.morphology,
-              pronunciation: item.pronunciation,
-              source: 'localStorage_cache',
-              confidence: 1.0,
-              found: true
-            };
-
-            newGrammarBreakdown.push({
-              word: item.latin,
-              meaning: item.definition,
-              part_of_speech: item.part_of_speech
-            });
-          });
-        }
-        
-        setVerseAnalysisState({
-          analysis: newAnalysis,
-          grammarBreakdown: newGrammarBreakdown,
-          selectedWordIndex: null,
-          wordInfo: null,
-          isAnalysisDone: true,
-          translations: analysisResult.translations || {},
-          theological_layer: analysisResult.theological_layer || [],
-          jungian_layer: analysisResult.jungian_layer || [],
-          cosmological_layer: analysisResult.cosmological_layer || [],
-          isLoading: false,
-          loadingMessage: ''
-        });
-
-        // Update theological interpretation
-        let interpretation = '';
-        if (analysisResult.theological_layer && Array.isArray(analysisResult.theological_layer)) {
-          interpretation += '🕊️ Theological Layer (cached):\n' + analysisResult.theological_layer.join('\n') + '\n\n';
-        }
-        if (analysisResult.jungian_layer && Array.isArray(analysisResult.jungian_layer)) {
-          interpretation += '🧠 Jungian/Symbolic Layer:\n' + analysisResult.jungian_layer.join('\n') + '\n\n';
-        }
-        if (analysisResult.cosmological_layer && Array.isArray(analysisResult.cosmological_layer)) {
-          interpretation += '🌌 Cosmological Layer:\n' + analysisResult.cosmological_layer.join('\n');
-        }
-        
-        setTheologicalInterpretation((interpretation || 'Analysis complete.') + ' ✅ Loaded from local cache');
-        return; // Exit early, no need for API call
-      } catch (error) {
-        console.warn('Failed to load from localStorage cache:', error);
-        localStorage.removeItem(cacheKey); // Remove corrupted cache
-      }
-    }
-    
-    // Add to request queue
-    setRequestQueue(prev => {
-      const newQueue = new Set(prev);
-      newQueue.add(verseRef);
-      return newQueue;
-    });
-    setIsVerseLoading(true);
-    
-    // Set loading states
-    setTheologicalInterpretation('🔄 Loading verse analysis...');
-    setVerseAnalysisState(prev => ({
-      ...prev,
-      translations: {},
-      isLoading: true,
-      loadingMessage: 'Analyzing verse...'
-    }));
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/dictionary/analyze/verse/complete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          verse: selectedVerse.text, 
-          reference: verseRef
-        })
-      });
-
-      if (!response.ok) {
-        if (response.status === 429) {
-          // Rate limited - try to get response anyway in case backend has cached result
-          console.log('Rate limit response, checking if backend has cached result...');
-          try {
-            const analysisResult = await response.json();
-            if (analysisResult.success) {
-              // Backend had cached result despite rate limit, process it normally
-              console.log('✅ Got cached result despite rate limit');
-            } else {
-              // No cached result available, use fallback
-              throw new Error('Rate limited and no cached result available');
-            }
-          } catch (parseError) {
-            // Can't parse response, definitely rate limited
-            setTheologicalInterpretation('⏳ API quota reached. Using basic word lookup for now.');
-            await fallbackToBatchLookup();
-            return;
-          }
-        } else {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-      }
-
-      const analysisResult = await response.json();
-
-      if (analysisResult.success) {
-        const newAnalysis: VerseAnalysis = {};
-        const newGrammarBreakdown: GrammarItem[] = [];
-
-        // Process word analysis
-        if (analysisResult.word_analysis && Array.isArray(analysisResult.word_analysis)) {
-          analysisResult.word_analysis.forEach((item: any) => {
-            newAnalysis[normalizeLatin(item.latin)] = {
-              latin: item.latin,
-              definition: item.definition,
-              etymology: item.etymology,
-              partOfSpeech: item.part_of_speech,
-              morphology: item.morphology,
-              pronunciation: item.pronunciation,
-              source: analysisResult.source || 'complete_analysis',
-              confidence: 1.0,
-              found: true
-            };
-
-            newGrammarBreakdown.push({
-              word: item.latin,
-              meaning: item.definition,
-              part_of_speech: item.part_of_speech
-            });
-          });
-        }
-        
-        // Update verse analysis state with all data
-        setVerseAnalysisState((prev: VerseAnalysisState) => ({
-          ...prev,
-          analysis: newAnalysis,
-          grammarBreakdown: newGrammarBreakdown,
-          isAnalysisDone: true,
-          translations: analysisResult.translations || {},
-          theological_layer: analysisResult.theological_layer || [],
-          jungian_layer: analysisResult.jungian_layer || [],
-          cosmological_layer: analysisResult.cosmological_layer || [],
-          isLoading: false,
-          loadingMessage: ''
-        }));
-
-        // Auto-select first available translation language if current selection doesn't exist
-        const availableLanguages = Object.keys(analysisResult.translations || {});
-        if (availableLanguages.length > 0 && !availableLanguages.includes(selectedTranslationLang)) {
-          setSelectedTranslationLang(availableLanguages[0]);
-        }
-
-        // Update theological interpretation (combining theological and jungian layers)
-        let interpretation = '';
-        const source = analysisResult.source === 'cache' ? ' (cached)' : '';
-        
-        if (analysisResult.theological_layer && Array.isArray(analysisResult.theological_layer)) {
-          interpretation += '🕊️ Theological Layer' + source + ':\n' + analysisResult.theological_layer.join('\n') + '\n\n';
-        }
-        if (analysisResult.jungian_layer && Array.isArray(analysisResult.jungian_layer)) {
-          interpretation += '🧠 Jungian/Symbolic Layer:\n' + analysisResult.jungian_layer.join('\n') + '\n\n';
-        }
-        if (analysisResult.cosmological_layer && Array.isArray(analysisResult.cosmological_layer)) {
-          interpretation += '🌌 Cosmological Layer:\n' + analysisResult.cosmological_layer.join('\n');
-        }
-        
-        const cacheStatus = analysisResult.source === 'cache' ? ' ✅ Loaded from cache (stored in database)' : ' 🆕 Fresh analysis generated and saved to database';
-        setTheologicalInterpretation((interpretation || 'Analysis complete.') + cacheStatus);
-        
-        // Cache successful results in localStorage for faster future access
-        try {
-          localStorage.setItem(cacheKey, JSON.stringify(analysisResult));
-          console.log(`Cached ${verseRef} to localStorage for future use`);
-        } catch (error) {
-          console.warn('Failed to cache to localStorage:', error);
-        }
-        
-      } else {
-        console.error("Complete analysis failed:", analysisResult.error);
-        if (analysisResult.error && (analysisResult.error.includes('quota') || analysisResult.error.includes('rate limit'))) {
-          setTheologicalInterpretation('⏳ API quota reached. Using word-by-word analysis for now. Full analysis will be available when quota resets.');
-          // Use fallback for new verses when quota is exceeded
-          await fallbackToBatchLookup();
-        } else {
-          setTheologicalInterpretation('⚠️ Analysis failed, using fallback...');
-          await fallbackToBatchLookup();
-        }
-      }
-    } catch (error) {
-      console.error("Error in complete analysis:", error);
-      setTheologicalInterpretation('⚠️ Network error, using fallback...');
-      await fallbackToBatchLookup();
-    } finally {
-      // Remove from request queue
-      setRequestQueue(prev => {
-        const newQueue = new Set(prev);
-        newQueue.delete(verseRef);
-        return newQueue;
-      });
-      setIsVerseLoading(false);
-      setVerseAnalysisState(prev => ({
-        ...prev,
-        isLoading: false,
-        loadingMessage: ''
-      }));
-    }
-  };
-
-  const fallbackToBatchLookup = async () => {
-    if (!selectedVerse) return;
-    const words = selectedVerse.text.split(" ").filter(w => w.length > 0);
-    const uniqueWords = Array.from(new Set(words.map(w => normalizeLatin(w.replace(/[.,:;?!]$/, '')))));
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/dictionary/lookup/batch`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          words: uniqueWords,
-          include_translations: false,
-          include_theological: false
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const batchResult = await response.json();
-      
-      if (batchResult.results) {
-        const analysis: VerseAnalysis = {};
-        const newGrammarBreakdown: GrammarItem[] = [];
-
-        batchResult.results.forEach((item: WordInfo) => {
-          analysis[normalizeLatin(item.latin)] = item;
-
-          newGrammarBreakdown.push({
-            word: item.latin,
-            meaning: item.definition,
-            part_of_speech: item.partOfSpeech
-          });
-        });
-        
-        setVerseAnalysisState((prev: VerseAnalysisState) => ({
-          ...prev,
-          analysis,
-          grammarBreakdown: newGrammarBreakdown,
-          theological_layer: [],
-          jungian_layer: [],
-          cosmological_layer: [],
-          isAnalysisDone: true,
-          isLoading: false,
-          loadingMessage: ''
-        }));
-      }
-    } catch (error) {
-      console.error("Batch lookup fallback failed:", error);
-      // Set a basic analysis with just the words
-      const basicAnalysis: VerseAnalysis = {};
-      const basicGrammarBreakdown: GrammarItem[] = [];
-      
-      words.forEach(word => {
-        const cleanWord = word.replace(/[.,:;?!]$/, '');
-        basicAnalysis[normalizeLatin(cleanWord)] = {
-          latin: cleanWord,
-          definition: 'Analysis not available',
-          etymology: '',
-          partOfSpeech: '',
-          source: 'error',
-          found: false
-        };
-        
-        basicGrammarBreakdown.push({
-          word: cleanWord,
-          meaning: 'Analysis not available',
-          part_of_speech: 'unknown'
-        });
-      });
-      
-      setVerseAnalysisState((prev: VerseAnalysisState) => ({
-        ...prev,
-        analysis: basicAnalysis,
-        grammarBreakdown: basicGrammarBreakdown,
-        theological_layer: [],
-        jungian_layer: [],
-        cosmological_layer: [],
-        isAnalysisDone: true,
-        isLoading: false,
-        loadingMessage: ''
-      }));
-    }
-  };
-  
-  const handleWordClick = async (wordIndex: number) => {
-    if (!selectedVerse) return;
-    const words = selectedVerse.text.split(" ");
-    const word = words[wordIndex].replace(/[.,:;?!]$/, '');
-    const normalizedWord = normalizeLatin(word);
-
-    // Set loading state
-    setVerseAnalysisState(prev => ({
-      ...prev,
-      selectedWordIndex: wordIndex,
-      wordInfo: {
-        latin: word,
-        definition: 'Loading...',
-        etymology: '',
-        partOfSpeech: '',
-        source: 'loading',
-        found: false
-      }
-    }));
-    setIsPopupVisible(true);
-
-    try {
-      let wordInfo: WordInfo | null = null;
-      if (verseAnalysisState.analysis[normalizedWord]) {
-        wordInfo = verseAnalysisState.analysis[normalizedWord];
-      } else {
-        // Fallback to individual lookup if not in analysis
-        wordInfo = await lookupWord(word);
-      }
-      
-      // Check if it's a name and fetch occurrences
-      const occurrences = await fetchNameOccurrences(word);
-      if (occurrences.length > 0) {
-        wordInfo = {
-          ...wordInfo,
-          isName: true
-        };
-      }
-      
-      setVerseAnalysisState(prev => ({
-        ...prev,
-        wordInfo,
-        nameOccurrences: occurrences
-      }));
-      
-      // Play audio for the word
-      playAudio(wordIndex, true);
-    } catch (error) {
-      console.error('Error looking up word:', error);
-      setVerseAnalysisState(prev => ({
-        ...prev,
-        wordInfo: {
-          latin: word,
-          definition: 'Error looking up word',
-          etymology: '',
-          partOfSpeech: '',
-          source: 'error',
-          found: false
-        }
-      }));
-    }
-  };
-  
-  const getWordStyling = (wordIndex: number) => {
-    if (!selectedVerse) return "";
-    const words = selectedVerse.text.split(" ");
-    const word = words[wordIndex].replace(/[.,:;?!]$/, '');
-    const normalizedWord = normalizeLatin(word);
-
-    let highlight = '';
-    let partOfSpeech = '';
-
-    if (verseAnalysisState.analysis[normalizedWord]) {
-      partOfSpeech = verseAnalysisState.analysis[normalizedWord].partOfSpeech || '';
-    }
-
-    // Highlight if selected
-    if (verseAnalysisState.selectedWordIndex === wordIndex) {
-      switch (partOfSpeech.toLowerCase()) {
-        case 'verb':
-          highlight = 'bg-blue-200';
-          break;
-        case 'noun':
-          highlight = 'bg-green-200';
-          break;
-        case 'adjective':
-          highlight = 'bg-purple-200';
-          break;
-        case 'adverb':
-          highlight = 'bg-orange-200';
-          break;
-        case 'pronoun':
-          highlight = 'bg-pink-200';
-          break;
-        case 'preposition':
-          highlight = 'bg-red-200';
-          break;
-        case 'conjunction':
-          highlight = 'bg-indigo-200';
-          break;
-        case 'interjection':
-          highlight = 'bg-yellow-200';
-          break;
-        default:
-          highlight = 'bg-gray-200';
-      }
-      highlight += ' rounded';
-    }
-
-    const baseStyle = `cursor-pointer transition-all duration-200 ease-in-out ${highlight}`;
-    return baseStyle;
-  };
-
-  const handleVerseChange = (newVerseNumber: number) => {
-    const newVerse = verses.find(v => v.verse_number === newVerseNumber);
-    if (newVerse) {
-      setSelectedVerse(newVerse);
-      // URL will be updated by the useEffect that watches selectedVerse
-    }
-  };
-  
-  const playAudio = async (wordIndex: number, isWordOnly: boolean = false) => {
-    if (!selectedVerse || !audioContext) return;
-    
-    try {
-      const verseNumber = selectedVerse.verse_number;
-      const url = `${API_BASE_URL}/audio/${selectedBookAbbr}/${currentChapter}/${verseNumber}`;
-      
-      const response = await fetch(url);
-      if (!response.ok) {
-        console.error('Audio not found');
-        setAudioAvailable(false);
-        return;
-      }
-      
-      setAudioAvailable(true);
-      
-      const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-      
-      if (audioSource) {
-        audioSource.stop();
-        setCurrentlyPlayingWordIndex(null);
-      }
-      
-      const source = audioContext.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(audioContext.destination);
-      
-      if (isWordOnly) {
-        // Calculate word timing (this is a simplified version)
-        const words = selectedVerse.text.split(' ');
-        const wordDuration = audioBuffer.duration / words.length;
-        const startTime = wordIndex * wordDuration;
-        source.start(0, startTime, wordDuration);
-        setCurrentlyPlayingWordIndex(wordIndex);
-        
-        // Clear highlight after word duration
-        setTimeout(() => {
-          setCurrentlyPlayingWordIndex(null);
-        }, wordDuration * 1000);
-      } else {
-        // Play entire verse with word-by-word highlighting
-        source.start(0);
-        const words = selectedVerse.text.split(' ');
-        const wordDuration = audioBuffer.duration / words.length;
-        
-        // Highlight words sequentially
-        for (let i = 0; i < words.length; i++) {
-          setTimeout(() => {
-            setCurrentlyPlayingWordIndex(i);
-          }, i * wordDuration * 1000);
-        }
-        
-        // Clear highlight when done
-        setTimeout(() => {
-          setCurrentlyPlayingWordIndex(null);
-        }, audioBuffer.duration * 1000);
-      }
-      
-      setAudioSource(source);
-      setIsPlaying(true);
-      
-      source.onended = () => {
-        setIsPlaying(false);
-        setAudioSource(null);
-        setCurrentlyPlayingWordIndex(null);
-      };
-    } catch (error) {
-      console.error('Error playing audio:', error);
-    }
-  };
-
-  // Handler for Greb AI definition
-  const handleGrebAIDefinition = async (word: string) => {
-    if (!selectedVerse) return;
-    setVerseAnalysisState(prev => ({
-      ...prev,
-      wordInfo: {
-        latin: word,
-        definition: 'Loading Greb Enhanced definition...',
-        etymology: '',
-        partOfSpeech: '',
-        source: 'loading',
-        found: false
-      }
-    }));
-    setTheologicalInterpretation('Loading theological interpretation...');
-    try {
-      const response = await fetch(`${API_BASE_URL}/dictionary/lookup/greb-ai`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ word, verse: selectedVerse.text })
-      });
-      const data = await response.json();
-      setVerseAnalysisState(prev => ({
-        ...prev,
-        wordInfo: {
-          latin: data.latin || word,
-          definition: data.definition || 'No definition available.',
-          etymology: data.etymology || '',
-          partOfSpeech: data.partOfSpeech || '',
-          morphology: data.morphology,
-          pronunciation: data.pronunciation,
-          source: 'greb',
-          confidence: data.confidence,
-          found: true
-        }
-      }));
-      if (data.theological_interpretation) {
-        setTheologicalInterpretation(data.theological_interpretation);
-      } else if (data.theologicalLayer && data.theologicalLayer.points) {
-        setTheologicalInterpretation(data.theologicalLayer.points.join('\n'));
-      } else if (data.interpretation) {
-        setTheologicalInterpretation(data.interpretation);
-      } else {
-        setTheologicalInterpretation('No theological interpretation available.');
-      }
-    } catch (error) {
-      setVerseAnalysisState(prev => ({
-        ...prev,
-        wordInfo: {
-          latin: word,
-          definition: 'Error getting Greb Enhanced definition',
-          etymology: '',
-          partOfSpeech: '',
-          source: 'error',
-          found: false
-        }
-      }));
-      setTheologicalInterpretation('Error getting theological interpretation.');
-    }
-  };
-
-  // At the top of the file or in the App component, inject the custom scrollbar style
-  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-    const style = document.createElement('style');
-    style.innerHTML = customScrollbarStyle + `
-      @keyframes pulse {
-        0%, 100% { transform: scale(1.1); }
-        50% { transform: scale(1.15); }
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  // Add these functions inside the App component, before the return statement
-  const fetchNameOccurrences = async (word: string) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/dictionary/name-occurrences/${encodeURIComponent(word)}`);
-      const data = await response.json();
-      return data.occurrences || [];
-    } catch (error) {
-      console.error('Error fetching name occurrences:', error);
-      return [];
-    }
-  };
-
-  const handleNavigateToOccurrence = (book: string, chapter: number, verse: number) => {
-    console.log(`Navigating to ${book} ${chapter}:${verse}`);
-    
-    // Navigate using URL - this will trigger the URL parsing logic
-    navigate(`/${book}/${chapter}/${verse}`);
-    
-    // Mark this verse as visited
-    setVisitedVerses(prev => ({
-      ...prev,
-      [getVerseKey(book, chapter, verse)]: true
-    }));
-  };
-
-  // Helper to get a unique key for a verse
-  const getVerseKey = (book: string, chapter: number, verse: number) => `${book}-${chapter}-${verse}`;
-
-  // Generate theological interpretation and translations for all languages
-  // Regenerate analysis on demand
-  const regenerateAnalysis = async () => {
-    if (!selectedVerse) return;
-    await loadCompleteAnalysis();
-  };
-
-  // On verse change, auto-generate if not visited
+  // Fetch chapters when book changes
   useEffect(() => {
-    if (selectedVerse && selectedBookAbbr && currentChapter) {
-      const key = getVerseKey(selectedBookAbbr, currentChapter, selectedVerse.verse_number);
-      if (!visitedVerses[key]) {
-        setVisitedVerses(prev => ({ ...prev, [key]: true }));
-        // Complete analysis already loaded in loadCompleteAnalysis
-      }
-    }
-    // eslint-disable-next-line
-  }, [selectedVerse, selectedBookAbbr, currentChapter]);
+    // Don't make the request until we have a valid book abbreviation
+    if (!selectedBookAbbr) return;
 
-  // Handler for theological interpretation generate button
-  const handleGenerateTheological = async () => {
-    if (!selectedVerse) return;
-    await regenerateAnalysis();
-  };
+    fetch(`http://127.0.0.1:8000/api/v1/books/abbr/${selectedBookAbbr}`)
+       .then((res) => res.json())
+       .then((data) => {
+         const chaps = Array.from({ length: data.chapter_count }, (_, i) => i + 1);
+         setChapters(chaps);
+       })
+       .catch((err) => console.error("Error fetching chapters:", err));
+  }, [selectedBookAbbr]);
 
-  // Load analysis queue
-  const loadQueue = async () => {
-    setIsLoadingQueue(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/analysis/queue`);
-      const result = await response.json();
-      
-      if (response.ok) {
-        setQueueItems(result.queue_items || []);
-      } else {
-        console.error('Failed to load queue:', result.detail);
-      }
-    } catch (error) {
-      console.error('Error loading queue:', error);
-    } finally {
-      setIsLoadingQueue(false);
-    }
-  };
+  // Fetch verses when chapter changes
+  useEffect(() => {
+    // Ensure we have both a book abbreviation and a valid chapter before fetching verses
+    if (!selectedBookAbbr || currentChapter < 1) return;
 
-  // Start editing a word
-  const startEditing = (word: string, meaning: string, grammarDescription: string, partOfSpeech: string, morphology: string) => {
-    setEditState({
-      isEditing: true,
-      editingWord: word,
-      editMeaning: meaning,
-      editGrammarDescription: grammarDescription,
-      editPartOfSpeech: partOfSpeech || '',
-      editMorphology: morphology || ''
-    });
-  };
-
-  // Cancel editing
-  const cancelEditing = () => {
-    setEditState({
-      isEditing: false,
-      editingWord: null,
-      editMeaning: '',
-      editGrammarDescription: '',
-      editPartOfSpeech: '',
-      editMorphology: ''
-    });
-  };
+    fetch(`http://127.0.0.1:8000/api/v1/verses/by-reference/${selectedBookAbbr}/${currentChapter}`)
+       .then((res) => {
+         if (!res.ok) {
+           throw new Error(`HTTP error! status: ${res.status}`);
+         }
+         return res.json();
+       })
+       .then((data) => {
+         // Ensure data is an array before proceeding
+         if (!Array.isArray(data)) {
+           console.warn("Expected array of verses but got:", data);
+           setVerses([]);
+           return;
+         }
+         
+         setVerses(data);
+         
+         // If we have a verse from URL, select it
+         const path = location.pathname;
+         const pathParts = path.split('/').filter(part => part);
+         if (pathParts.length >= 3) {
+           const verseParam = parseInt(pathParts[2]) || 1;
+           const targetVerse = data.find((v: Verse) => v.verse_number === verseParam);
+           if (targetVerse) {
+             setSelectedVerse(targetVerse);
+           } else if (data.length > 0) {
+             setSelectedVerse(data[0]); // Fallback to first verse
+           }
+         } else if (data.length > 0 && !selectedVerse) {
+           setSelectedVerse(data[0]); // Default to first verse if none selected
+         }
+       })
+       .catch((err) => {
+         console.error("Error fetching verses:", err);
+         setVerses([]);
+       });
+  }, [currentChapter, selectedBookAbbr, location.pathname]);
 
   // Save edited grammar breakdown
   const saveEdit = async () => {
@@ -2747,26 +2077,417 @@ const VersePage: React.FC = () => {
   // Load queue on component mount
   useEffect(() => {
     loadQueue();
+    // Check if OpenAI is available
+    const checkOpenAIAvailability = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/dictionary/stats`);
+        const stats = await response.json();
+        setIsOpenAIAvailable(stats.openai_enabled || false);
+      } catch (error) {
+        console.error('Error checking OpenAI availability:', error);
+        setIsOpenAIAvailable(false);
+      }
+    };
+    checkOpenAIAvailability();
   }, []);
+
+  // Check if OpenAI is available
+  const checkOpenAIAvailability = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/dictionary/stats`);
+      const stats = await response.json();
+      setIsOpenAIAvailable(stats.openai_enabled || false);
+    } catch (error) {
+      console.error('Error checking OpenAI availability:', error);
+      setIsOpenAIAvailable(false);
+    }
+  };
+
+  // Load queue on component mount
+  useEffect(() => {
+    loadQueue();
+    // Check if OpenAI is available
+    checkOpenAIAvailability();
+  }, []);
+
+  const loadOpenAIAnalysis = async () => {
+    if (!selectedVerse) return;
+    
+    const verseRef = `${selectedBookAbbr} ${currentChapter}:${selectedVerse.verse_number}`;
+    console.log(`Loading OpenAI analysis for: ${verseRef}`);
+    
+    setIsOpenAIAnalyzing(true);
+    setTheologicalInterpretation('🤖 Analyzing with AI...');
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/dictionary/analyze/verse/openai`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          verse: selectedVerse.text, 
+          reference: verseRef
+        })
+      });
+
+      if (!response.ok) {
+        if (response.status === 400) {
+          const errorData = await response.json();
+          setTheologicalInterpretation(`❌ ${errorData.detail}`);
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const analysisResult = await response.json();
+
+      if (analysisResult.success) {
+        const newAnalysis: VerseAnalysis = {};
+        const newGrammarBreakdown: GrammarItem[] = [];
+
+        // Process word analysis
+        if (analysisResult.word_analysis && Array.isArray(analysisResult.word_analysis)) {
+          analysisResult.word_analysis.forEach((item: any) => {
+            newAnalysis[normalizeLatin(item.latin)] = {
+              latin: item.latin,
+              definition: item.definition,
+              etymology: item.etymology,
+              partOfSpeech: item.part_of_speech,
+              morphology: item.morphology,
+              pronunciation: item.pronunciation,
+              source: 'openai_enhanced',
+              confidence: 1.0,
+              found: true
+            };
+
+            newGrammarBreakdown.push({
+              word: item.latin,
+              meaning: item.definition,
+              part_of_speech: item.part_of_speech
+            });
+          });
+        }
+        
+        // Update verse analysis state with OpenAI data
+        setVerseAnalysisState((prev: VerseAnalysisState) => ({
+          ...prev,
+          analysis: newAnalysis,
+          grammarBreakdown: newGrammarBreakdown,
+          isAnalysisDone: true,
+          theological_layer: analysisResult.theological_layer || [],
+          jungian_layer: analysisResult.jungian_layer || [],
+          cosmological_layer: analysisResult.cosmological_layer || [],
+          isLoading: false,
+          loadingMessage: ''
+        }));
+
+        // Update theological interpretation
+        let interpretation = '';
+        
+        if (analysisResult.theological_layer && Array.isArray(analysisResult.theological_layer)) {
+          interpretation += '🕊️ Theological Layer (AI Enhanced):\n' + analysisResult.theological_layer.join('\n') + '\n\n';
+        }
+        if (analysisResult.jungian_layer && Array.isArray(analysisResult.jungian_layer)) {
+          interpretation += '🧠 Jungian/Symbolic Layer:\n' + analysisResult.jungian_layer.join('\n') + '\n\n';
+        }
+        if (analysisResult.cosmological_layer && Array.isArray(analysisResult.cosmological_layer)) {
+          interpretation += '🌌 Cosmological Layer:\n' + analysisResult.cosmological_layer.join('\n');
+        }
+        
+        setTheologicalInterpretation((interpretation || 'AI analysis complete.') + ' 🤖 Enhanced with Greb AI');
+        
+        // Cache the OpenAI results
+        try {
+          const cacheKey = `verse_analysis_${verseRef}`;
+          localStorage.setItem(cacheKey, JSON.stringify(analysisResult));
+          console.log(`Cached OpenAI analysis for ${verseRef}`);
+        } catch (error) {
+          console.warn('Failed to cache OpenAI analysis:', error);
+        }
+        
+      } else {
+        setTheologicalInterpretation('❌ Greb AI analysis failed');
+      }
+    } catch (error) {
+      console.error("Error in OpenAI analysis:", error);
+      setTheologicalInterpretation('❌ Greb AI analysis error - using basic analysis');
+    } finally {
+      setIsOpenAIAnalyzing(false);
+    }
+  };
+
+  const translateVerse = async (language: string) => {
+    if (!selectedVerse) return;
+    
+    setIsTranslating(true);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/dictionary/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          verse: selectedVerse.text, 
+          language: language
+        })
+      });
+
+      if (!response.ok) {
+        if (response.status === 400) {
+          const errorData = await response.json();
+          console.error(`Translation error: ${errorData.detail}`);
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const translationResult = await response.json();
+
+      if (translationResult.success) {
+        // Update available translations
+        setAvailableTranslations(prev => ({
+          ...prev,
+          [language]: translationResult.translation
+        }));
+        
+        // Update verse analysis state
+        setVerseAnalysisState(prev => ({
+          ...prev,
+          translations: {
+            ...prev.translations,
+            [language]: translationResult.translation
+          }
+        }));
+        
+        console.log(`Translation to ${language} completed`);
+      }
+    } catch (error) {
+      console.error(`Error translating to ${language}:`, error);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+  
+  // NEW: Compact Greb AI enhance/refresh handler
+  const handleEnhanceClick = async () => {
+    if (!selectedVerse || isOpenAIAnalyzing) return;
+    // Always run a fresh Greb AI enhancement, bypassing cached DB/localStorage fetches
+    await loadOpenAIAnalysis();
+  };
+
+  const handleVerseChange = (verseNumber: number) => {
+    if (verseNumber >= 1 && verseNumber <= verses.length) {
+      const newVerse = verses.find(v => v.verse_number === verseNumber);
+      if (newVerse) {
+        setSelectedVerse(newVerse);
+        navigate(`/${selectedBookAbbr}/${currentChapter}/${verseNumber}`);
+      }
+    }
+  };
+
+  const handleNavigateToOccurrence = (book: string, chapter: number, verse: number) => {
+    navigate(`/${book}/${chapter}/${verse}`);
+  };
+  
+  const loadQueue = async () => {
+    try {
+      setIsLoadingQueue(true);
+      const response = await fetch(`${API_BASE_URL}/analysis/queue`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setQueueItems(data);
+    } catch (error) {
+      console.error('Error loading queue:', error);
+    } finally {
+      setIsLoadingQueue(false);
+    }
+  };
+  
+  const loadCompleteAnalysis = async () => {
+    if (!selectedVerse) return;
+    await analyzeVerse();
+  };
+
+  const cancelEditing = () => {
+    setEditState({
+      isEditing: false,
+      editingWord: null,
+      editMeaning: '',
+      editGrammarDescription: '',
+      editPartOfSpeech: '',
+      editMorphology: ''
+    });
+  };
+
+  const handleWordClick = (index: number) => {
+    if (!selectedVerse) return;
+    const words = selectedVerse.text.split(' ');
+    const word = words[index];
+    const cleanWord = word.replace(/[.,:;?!]$/, '');
+    const normalized = normalizeLatin(cleanWord);
+    
+    setVerseAnalysisState(prev => ({
+      ...prev,
+      selectedWord: normalized,
+      selectedWordIndex: index,
+      wordInfo: prev.analysis[normalized] || null
+    }));
+  };
+
+  const playAudio = async (startIndex: number, autoPlay: boolean) => {
+    if (!selectedVerse || !audioContext) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/audio/${selectedBookAbbr}/${currentChapter}/${selectedVerse.verse_number}`);
+      if (!response.ok) throw new Error('Audio not available');
+      
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      
+      if (audioSource) {
+        audioSource.stop();
+        audioSource.disconnect();
+      }
+      
+      const source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioContext.destination);
+      
+      setAudioSource(source);
+      source.start(0);
+      setIsPlaying(true);
+      
+      source.onended = () => {
+        setIsPlaying(false);
+        setAudioSource(null);
+      };
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      setIsPlaying(false);
+      setAudioSource(null);
+    }
+  };
+
+  const handleGrebAIDefinition = async (word: string) => {
+    if (!word) return;
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/dictionary/lookup/${encodeURIComponent(word)}?regenerate=true`);
+      if (!response.ok) throw new Error('Failed to get definition');
+      
+      const data = await response.json();
+      setVerseAnalysisState(prev => ({
+        ...prev,
+        wordInfo: data
+      }));
+    } catch (error) {
+      console.error('Error getting Greb AI definition:', error);
+    }
+  };
+
+  const analyzeVerse = async () => {
+    if (!selectedVerse) return;
+
+    setVerseAnalysisState(prev => ({
+      ...prev,
+      isLoading: true,
+      loadingMessage: 'Analyzing verse...'
+    }));
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/dictionary/analyze/verse`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          verse: selectedVerse.text,
+          reference: `${selectedBookAbbr} ${currentChapter}:${selectedVerse.verse_number}`,
+          include_translations: true,
+          include_theological: true
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // Determine first word info for auto-select
+      const firstWordRaw = data.full_analysis?.word_analysis?.[0]?.latin || '';
+      const firstWordNorm = normalizeLatin(firstWordRaw);
+
+      setVerseAnalysisState(prev => ({
+        ...prev,
+        analysis: data.analysis || {},
+        grammarBreakdown: data.full_analysis?.word_analysis || [],
+        translations: data.full_analysis?.translations || {},
+        theological_layer: data.full_analysis?.theological_layer || [],
+        jungian_layer: data.full_analysis?.jungian_layer || [],
+        cosmological_layer: data.full_analysis?.cosmological_layer || [],
+        isAnalysisDone: true,
+        isLoading: false,
+        loadingMessage: '',
+        selectedWord: firstWordNorm,
+        selectedWordIndex: 0,
+        wordInfo: (data.analysis || {})[firstWordNorm] || null
+      }));
+
+      // Cache the analysis result
+      const verseRef = `${selectedBookAbbr} ${currentChapter}:${selectedVerse.verse_number}`;
+      const cacheKey = `verse_analysis_${verseRef}`;
+      localStorage.setItem(cacheKey, JSON.stringify(data));
+
+    } catch (error) {
+      console.error('Error analyzing verse:', error);
+      setVerseAnalysisState(prev => ({
+        ...prev,
+        isLoading: false,
+        loadingMessage: '',
+        saveStatus: 'error',
+        saveMessage: 'Failed to analyze verse. Please try again later.'
+      }));
+    }
+  };
+
+  // ... inside VersePage component before the return statement, add helper
+  const renderInterpretationLayers = () => {
+    if (!analysisResultHasLayers(verseAnalysisState)) return null;
+
+    const { theological_layer = [], jungian_layer = [], cosmological_layer = [] } = verseAnalysisState;
+
+    const layerCard = (title: string, latin: string, icon: any, points: string[], bg: string, border: string) => (
+      <div className={`${bg} ${border} rounded-lg p-4 shadow`}>
+        <h3 className="text-xl font-bold mb-2 flex items-center">
+          <FontAwesomeIcon icon={icon} className="mr-2" />
+          {title}
+        </h3>
+        <div className="italic text-gray-700 mb-1">{latin}</div>
+        <ul className="list-disc list-inside text-gray-800 space-y-1">
+          {points.map((p, idx) => (
+            <li key={idx}>{p}</li>
+          ))}
+        </ul>
+      </div>
+    );
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {layerCard('Theological Layer', 'Stratum Theologicum', faChurch, theological_layer, 'bg-yellow-100', 'border-l-8 border-yellow-400')}
+        {layerCard('Symbolic (Jungian) Layer', 'Stratum Symbolicum (Jungianum)', faBrain, jungian_layer, 'bg-purple-100', 'border-l-8 border-purple-400')}
+        {layerCard('Cosmological-Historical Layer', 'Stratum Cosmologicum-Historicum', faGlobe, cosmological_layer, 'bg-orange-100', 'border-l-8 border-orange-400')}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-[#fefaf0] text-black p-8">
-      {/* Header and language row */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-3xl font-extrabold">VULGATE</h1>
           <p className="text-gray-600 italic text-sm">VULGATA CLEMENTINA</p>
-        </div>
-        <div className="flex gap-2">
-          {LANGUAGES.map(lang => (
-            <button
-              key={lang.code}
-              className={`text-xs px-2 py-1 border rounded transition-all duration-150 ${selectedLanguage.code === lang.code ? 'bg-yellow-200 border-yellow-500 font-bold' : 'bg-white hover:bg-yellow-50'}`}
-              onClick={() => setSelectedLanguage(lang)}
-            >
-              {lang.flag} {lang.name}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -2787,6 +2508,14 @@ const VersePage: React.FC = () => {
             <BookDropdown books={books} selectedBookAbbr={selectedBookAbbr} setSelectedBookAbbr={setSelectedBookAbbr} />
             <ChapterDropdown chapters={chapters} currentChapter={currentChapter} setCurrentChapter={setCurrentChapter} />
             <VerseDropdown verses={verses} selectedVerseNumber={selectedVerse?.verse_number || 1} handleVerseChange={handleVerseChange} />
+            {/* Language dropdown shows when translations available */}
+            {verseAnalysisState.translations && Object.keys(verseAnalysisState.translations).length > 0 && (
+              <LanguageDropdown
+                languages={Object.keys(verseAnalysisState.translations)}
+                selectedLang={selectedTranslationLang}
+                setSelectedLang={setSelectedTranslationLang}
+              />
+            )}
             <button
               onClick={() => handleVerseChange(selectedVerse ? selectedVerse.verse_number + 1 : 1)}
               disabled={!selectedVerse || selectedVerse.verse_number >= verses.length}
@@ -2891,24 +2620,6 @@ const VersePage: React.FC = () => {
             {/* Translation Tabs */}
             {!isVerseLoading && verseAnalysisState.translations && Object.keys(verseAnalysisState.translations).length > 0 && (
               <div className="mt-4 border-t-2 border-gray-200 pt-4">
-                {/* Language Tabs */}
-                <div className="flex flex-wrap gap-2 justify-center mb-3">
-                  {Object.keys(verseAnalysisState.translations).map((lang) => (
-                    <button
-                      key={lang}
-                      onClick={() => setSelectedTranslationLang(lang)}
-                      className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-200 ${
-                        selectedTranslationLang === lang
-                          ? 'bg-blue-600 text-white shadow-md transform scale-105'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-105'
-                      }`}
-                    >
-                      {lang.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
-                
-                {/* Selected Translation */}
                 <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
                   <div className="text-sm text-gray-600 mb-1 text-center font-semibold">
                     {selectedTranslationLang.toUpperCase()} Translation
@@ -2922,7 +2633,7 @@ const VersePage: React.FC = () => {
           </div>
 
           {/* Play/Pause and Record buttons */}
-          <div className="flex gap-4 justify-center mt-4">
+          <div className="flex gap-4 justify-center mt-4 flex-wrap">
             {audioAvailable && (
               <button
                 className={`p-3 rounded-full ${isPlaying ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600'} text-white shadow transition-colors duration-200`}
@@ -2960,292 +2671,146 @@ const VersePage: React.FC = () => {
                 <FontAwesomeIcon icon={faUpload} />
               </button>
             )}
+            {/* OpenAI Analysis button moved here */}
+            <button
+              className={`p-3 rounded-full border-2 border-black ${
+                isOpenAIAnalyzing ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700'
+              } text-white shadow transition-colors duration-200`}
+              title="Enhance analysis with Greb AI / Refresh analysis"
+              onClick={handleEnhanceClick}
+              disabled={!selectedVerse || isOpenAIAnalyzing}
+            >
+              {isOpenAIAnalyzing ? (
+                <FontAwesomeIcon icon={faSpinner} spin />
+              ) : (
+                <FontAwesomeIcon icon={faBrain} />
+              )}
+            </button>
           </div>
           
           {/* Recording status */}
           {uploadStatus && (
             <div className="mt-2 text-center">
-              <span className={`text-sm px-3 py-1 rounded-full ${
-                uploadStatus.includes('Error') ? 'bg-red-100 text-red-700' :
-                uploadStatus.includes('Recording') ? 'bg-yellow-100 text-yellow-700' :
-                'bg-green-100 text-green-700'
-              }`}>
-                {uploadStatus}
-              </span>
+              {uploadStatus}
             </div>
           )}
         </div>
 
-        {/* Analysis section - 2 columns below verse */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left column: Grammar Breakdown */}
-          {!isVerseLoading && verseAnalysisState.isAnalysisDone && (
-            <div className="border-4 border-black rounded-2xl p-6 bg-[#fffceb] shadow-lg">
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <FontAwesomeIcon icon={faLanguage} className="text-yellow-600" /> Grammar Breakdown
-              </h2>
-              
-              {/* Grammar Legend */}
-              <div className="mb-4 p-3 bg-white rounded-lg border-2 border-gray-300">
-                <h3 className="text-sm font-bold mb-2">Parts of Speech Legend:</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 text-xs">
-                  {Object.entries(GRAMMAR_COLORS).map(([type, colorClass]) => (
-                    type !== 'default' && (
-                      <div key={type} className={`px-2 py-1 rounded ${colorClass} text-center`}>
-                        {type}
-                      </div>
-                    )
-                  ))}
-                </div>
-              </div>
-              
-              {verseAnalysisState.grammarBreakdown.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {verseAnalysisState.grammarBreakdown.map((item, idx) => {
-                    const partOfSpeech = (item.part_of_speech.toLowerCase() || 'default') as GrammarColorKey;
-                    const colorClass = GRAMMAR_COLORS[partOfSpeech] || GRAMMAR_COLORS.default;
-                    const normalizedWord = normalizeLatin(item.word);
-                    const isSelected = verseAnalysisState.selectedWord === normalizedWord;
-                    const isHovered = verseAnalysisState.hoveredWord === normalizedWord;
-                    const isBeingEdited = editState.isEditing && editState.editingWord === item.word;
-                    
-                    return (
-                      <div 
-                        key={idx} 
-                        className={`group p-3 rounded-lg border-2 transition-all duration-200 ${
-                          isBeingEdited ? 'ring-4 ring-green-500 ring-opacity-50' : 'cursor-pointer'
+        {/* Analysis and editing section */}
+        <div className="flex gap-8 flex-wrap">
+          {/* Analysis column */}
+          <div className="flex-[3] min-w-[280px]">
+            <div className="bg-white border-4 border-black rounded-2xl shadow-lg shadow-gray-200/40 p-6">
+              <h3 className="text-lg font-bold mb-4 text-gray-800">
+                <FontAwesomeIcon icon={faBrain} className="mr-2" />
+                Analysis
+              </h3>
+              <div className="space-y-4">
+                {/* Word Definition Card */}
+                {verseAnalysisState.wordInfo && (
+                  <WordInfoComponent 
+                    wordInfo={verseAnalysisState.wordInfo}
+                    onRegenerate={async (word: string) => {
+                      // Clear cache and regenerate
+                      setVerseAnalysisState(prev => ({
+                        ...prev,
+                        wordInfo: {
+                          latin: word,
+                          definition: 'Regenerating...',
+                          etymology: '',
+                          partOfSpeech: '',
+                          source: 'loading',
+                          found: false
                         }
-                          ${colorClass} 
-                          ${isSelected ? 'ring-4 ring-blue-500 ring-opacity-50' : ''} 
-                          ${isHovered ? 'scale-105 shadow-lg' : 'hover:shadow-md'}`}
-                        onClick={() => !isBeingEdited && handleGrammarWordClick(item.word)}
-                        onMouseEnter={() => !isBeingEdited && handleWordHover(item.word)}
-                        onMouseLeave={() => !isBeingEdited && handleWordHover(null)}
-                      >
-                        {isBeingEdited ? (
-                          // Edit mode
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <strong className="text-lg">{item.word}</strong>
-                              <div className="flex gap-1">
-                                <button
-                                  onClick={saveEdit}
-                                  className="p-1 text-green-600 hover:bg-green-100 rounded"
-                                  title="Save changes"
-                                >
-                                  <FontAwesomeIcon icon={faSave} />
-                                </button>
-                                <button
-                                  onClick={cancelEditing}
-                                  className="p-1 text-red-600 hover:bg-red-100 rounded"
-                                  title="Cancel editing"
-                                >
-                                  <FontAwesomeIcon icon={faTimes} />
-                                </button>
-                              </div>
-                            </div>
-                            <div className="space-y-1">
-                              <textarea
-                                value={editState.editMeaning}
-                                onChange={(e) => setEditState(prev => ({ ...prev, editMeaning: e.target.value }))}
-                                placeholder="Meaning"
-                                className="w-full p-2 text-xs border rounded resize-none"
-                                rows={2}
-                              />
-                              <input
-                                value={editState.editPartOfSpeech}
-                                onChange={(e) => setEditState(prev => ({ ...prev, editPartOfSpeech: e.target.value }))}
-                                placeholder="Part of speech"
-                                className="w-full p-1 text-xs border rounded"
-                              />
-                              <textarea
-                                value={editState.editGrammarDescription}
-                                onChange={(e) => setEditState(prev => ({ ...prev, editGrammarDescription: e.target.value }))}
-                                placeholder="Grammar description"
-                                className="w-full p-2 text-xs border rounded resize-none"
-                                rows={1}
-                              />
-                            </div>
-                          </div>
-                        ) : (
-                          // View mode
-                          <>
-                            <div className="flex items-center justify-between">
-                              <strong className="flex items-center gap-1 text-lg">
-                                <FontAwesomeIcon icon={getIconForWordType(item.part_of_speech)} className="text-current" /> 
-                                {item.word}
-                              </strong>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  startEditing(
-                                    item.word, 
-                                    item.meaning, 
-                                    item.grammar_description || '', 
-                                    item.part_of_speech || '', 
-                                    (item as any).morphology || ''
-                                  );
-                                }}
-                                className="p-1 text-blue-600 hover:bg-blue-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                                title="Edit this entry"
-                              >
-                                <FontAwesomeIcon icon={faEdit} />
-                              </button>
-                            </div>
-                            <div className="text-sm mt-1">
-                              {item.meaning.length > 50 ? `${item.meaning.substring(0, 50)}...` : item.meaning}
-                              {item.part_of_speech && (
-                                <span className="ml-1 opacity-75">({item.part_of_speech})</span>
-                              )}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-600">
-                  <div className="text-lg font-semibold mb-2">No grammar breakdown available</div>
-                  <div className="text-sm">
-                    Analysis in progress or verse data needs to be processed.
-                    <br />
-                    <span className="text-xs mt-2 block">
-                      Debug: isAnalysisDone={verseAnalysisState.isAnalysisDone ? 'true' : 'false'}, 
-                      grammarLength={verseAnalysisState.grammarBreakdown.length}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Right column: Definition and Theological Interpretation */}
-          <div className="flex flex-col gap-6">
-
-            {/* Definition panel */}
-            {verseAnalysisState.wordInfo && (
-              <div className="bg-gradient-to-br from-white via-red-50 to-red-100 border-4 border-red-400 rounded-2xl p-6 shadow-lg">
-                <WordInfoComponent
-                  wordInfo={verseAnalysisState.wordInfo}
-                  isPopup={false}
-                  onClose={undefined}
-                  onRegenerate={async (word) => {
-                    const wordInfo = await lookupWord(word);
-                    setVerseAnalysisState(prev => ({
-                      ...prev,
-                      wordInfo
-                    }));
-                  }}
-                  onGrebAI={handleGrebAIDefinition}
-                  onNavigateToVerse={(reference) => {
-                    // Parse reference and navigate
-                    const parts = reference.split(' ');
-                    if (parts.length >= 2) {
-                      const book = parts[0];
-                      const chapterVerse = parts[1].split(':');
-                      if (chapterVerse.length === 2) {
-                        const chapter = parseInt(chapterVerse[0]);
-                        const verse = parseInt(chapterVerse[1]);
-                        navigate(`/${book}/${chapter}/${verse}`);
+                      }));
+                      
+                      try {
+                        const response = await fetch(`${API_BASE_URL}/dictionary/lookup/${encodeURIComponent(word)}?regenerate=true`);
+                        const data = await response.json();
+                        setVerseAnalysisState(prev => ({
+                          ...prev,
+                          wordInfo: data
+                        }));
+                      } catch (error) {
+                        console.error('Error regenerating word info:', error);
                       }
-                    }
-                  }}
-                />
-                {verseAnalysisState.wordInfo.isName && verseAnalysisState.nameOccurrences && (
-                  <NameOccurrencesComponent
-                    occurrences={verseAnalysisState.nameOccurrences}
-                    onNavigate={handleNavigateToOccurrence}
+                    }}
+                    onGrebAI={handleGrebAIDefinition}
+                    onNavigateToVerse={(reference: string) => {
+                      const parts = reference.split(' ');
+                      if (parts.length >= 2) {
+                        const [book, chapterVerse] = parts;
+                        const [chapter, verse] = chapterVerse.split(':');
+                        handleNavigateToOccurrence(book, parseInt(chapter), parseInt(verse));
+                      }
+                    }}
                   />
                 )}
+                
+                {/* Theological interpretation */}
+                {analysisResultHasLayers(verseAnalysisState) ? (
+                  renderInterpretationLayers()
+                ) : (
+                  <div className="bg-gray-50 border-4 border-gray-300 rounded-lg shadow-md p-4">
+                    <h4 className="text-md font-bold mb-2 text-gray-700">
+                      <FontAwesomeIcon icon={faSun} className="mr-2" />
+                      Theological Interpretation
+                    </h4>
+                    <div className="text-gray-600 leading-relaxed whitespace-pre-line">
+                      {theologicalInterpretation}
+                    </div>
+                  </div>
+                )}
+                {/* Name occurrences */}
+                <NameOccurrencesComponent 
+                  occurrences={verseAnalysisState.nameOccurrences || []} 
+                  onNavigate={handleNavigateToOccurrence}
+                />
               </div>
-            )}
+            </div>
+          </div>
 
-            {/* Theological Interpretation */}
-            {!isVerseLoading && verseAnalysisState.isAnalysisDone && (
-              <div className="bg-gradient-to-br from-white via-yellow-50 to-yellow-100 border-4 border-yellow-400 rounded-2xl p-6 shadow-2xl">
-                <h3 className="text-xl font-bold flex items-center gap-2 text-yellow-800 mb-4">
-                  <FontAwesomeIcon icon={faCross} /> Theological Interpretation
-                </h3>
-                <div className="space-y-2">
-                  {(verseAnalysisState as any)?.theological_layer?.length > 0 ? (
-                    (verseAnalysisState as any).theological_layer.map((insight: string, idx: number) => (
-                      <div key={idx} className="bg-yellow-50 p-3 rounded-lg border-l-4 border-yellow-500">
-                        <p className="text-gray-800">{insight}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-gray-600 italic">Theological analysis will appear when verse analysis completes.</div>
-                  )}
+          {/* Editing column */}
+          <div className="flex-[2] min-w-[260px]">
+            <div className="bg-white border-4 border-black rounded-2xl shadow-lg shadow-gray-200/40 p-6">
+              <h3 className="text-lg font-bold mb-4 text-gray-800">
+                <FontAwesomeIcon icon={faEdit} className="mr-2" />
+                Edit
+              </h3>
+              <div className="space-y-4">
+                {/* Grammar breakdown display */}
+                <div className="bg-gray-50 border-2 border-gray-300 rounded-lg p-4">
+                  <h4 className="text-md font-bold mb-2 text-gray-700">
+                    <FontAwesomeIcon icon={faBook} className="mr-2" />
+                    Grammar Breakdown
+                  </h4>
+                  <div className="space-y-2">
+                    {verseAnalysisState.grammarBreakdown.map((item, index) => {
+                      const posKey = (item.part_of_speech?.toLowerCase() || 'default') as GrammarColorKey;
+                      const colorClass = GRAMMAR_COLORS[posKey] || GRAMMAR_COLORS.default;
+                      return (
+                        <button
+                          key={index}
+                          className={`w-full flex justify-between items-center p-2 rounded border cursor-pointer transition-transform duration-150 hover:scale-[1.02] ${colorClass}`}
+                          onClick={() => {
+                            handleWordClick(index);
+                            handleGrammarWordClick(item.word);
+                          }}
+                        >
+                          <span className="font-bold">{item.word}</span>
+                          <span className="text-xs uppercase">{item.part_of_speech}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
-            )}
-
-            {/* Jungian/Symbolic Interpretation */}
-            {!isVerseLoading && verseAnalysisState.isAnalysisDone && (
-              <div className="bg-gradient-to-br from-white via-purple-50 to-purple-100 border-4 border-purple-400 rounded-2xl p-6 shadow-2xl">
-                <h3 className="text-xl font-bold flex items-center gap-2 text-purple-800 mb-4">
-                  <FontAwesomeIcon icon={faBrain} /> Jungian Analysis
-                </h3>
-                <div className="space-y-2">
-                  {(verseAnalysisState as any)?.jungian_layer?.length > 0 ? (
-                    (verseAnalysisState as any).jungian_layer.map((insight: string, idx: number) => (
-                      <div key={idx} className="bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
-                        <p className="text-gray-800">{insight}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-gray-600 italic">Jungian analysis will appear when verse analysis completes.</div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Cosmological Interpretation */}
-            {!isVerseLoading && verseAnalysisState.isAnalysisDone && (
-              <div className="bg-gradient-to-br from-white via-blue-50 to-blue-100 border-4 border-blue-400 rounded-2xl p-6 shadow-2xl">
-                <h3 className="text-xl font-bold flex items-center gap-2 text-blue-800 mb-4">
-                  <FontAwesomeIcon icon={faGlobe} /> Cosmological Context
-                </h3>
-                <div className="space-y-2">
-                  {(verseAnalysisState as any)?.cosmological_layer?.length > 0 ? (
-                    (verseAnalysisState as any).cosmological_layer.map((insight: string, idx: number) => (
-                      <div key={idx} className="bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500">
-                        <p className="text-gray-800">{insight}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-gray-600 italic">Cosmological analysis will appear when verse analysis completes.</div>
-                  )}
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         </div>
-
-        {/* Analysis History and Global Edit sections */}
-        {selectedVerse && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-            <AnalysisHistoryComponent
-              book={selectedBookAbbr}
-              chapter={currentChapter}
-              verse={selectedVerse.verse_number}
-            />
-            <GlobalEditComponent
-              book={selectedBookAbbr}
-              chapter={currentChapter}
-              verse={selectedVerse.verse_number}
-              onEditModeChange={setIsGlobalEditMode}
-            />
-          </div>
-        )}
-
-        {/* Queue section - full width at bottom */}
-        <QueueComponent 
-          queueItems={queueItems}
-          onNavigateToVerse={handleQueueNavigate}
-        />
       </div>
+      
+
     </div>
   );
 };
@@ -3264,31 +2829,24 @@ export default App;
 
 // Helper: check if OpenAI layers exist
 function analysisResultHasLayers(state: VerseAnalysisState) {
-  const fa = (state as any);
   return (
-    (fa.theological_layer && Array.isArray(fa.theological_layer)) ||
-    (fa.symbolicLayer && Array.isArray(fa.symbolicLayer.points)) ||
-    (fa.cosmologicalLayer && Array.isArray(fa.cosmologicalLayer.points)) ||
-    (fa.interpretationLayers && Array.isArray(fa.interpretationLayers))
+    (state.theological_layer && Array.isArray(state.theological_layer) && state.theological_layer.length > 0) ||
+    (state.jungian_layer && Array.isArray(state.jungian_layer) && state.jungian_layer.length > 0) ||
+    (state.cosmological_layer && Array.isArray(state.cosmological_layer) && state.cosmological_layer.length > 0)
   );
 }
 
-// Helper: get all interpretation layers in OpenAI format
+// Helper: get all interpretation layers in legacy format
 function getInterpretationLayers(state: VerseAnalysisState) {
-  // Try new OpenAI format (array of layers)
-  if ((state as any).interpretationLayers && Array.isArray((state as any).interpretationLayers)) {
-    return (state as any).interpretationLayers;
-  }
-  // Try legacy format (separate arrays)
   const layers = [];
-  if (state.theological_layer && Array.isArray(state.theological_layer)) {
+  if (state.theological_layer && Array.isArray(state.theological_layer) && state.theological_layer.length > 0) {
     layers.push({ layer_type: 'theological', points: state.theological_layer });
   }
-  if ((state as any).symbolicLayer && Array.isArray((state as any).symbolicLayer.points)) {
-    layers.push({ layer_type: 'symbolic', ...(state as any).symbolicLayer });
+  if (state.jungian_layer && Array.isArray(state.jungian_layer) && state.jungian_layer.length > 0) {
+    layers.push({ layer_type: 'jungian', points: state.jungian_layer });
   }
-  if ((state as any).cosmologicalLayer && Array.isArray((state as any).cosmologicalLayer.points)) {
-    layers.push({ layer_type: 'cosmological', ...(state as any).cosmologicalLayer });
+  if (state.cosmological_layer && Array.isArray(state.cosmological_layer) && state.cosmological_layer.length > 0) {
+    layers.push({ layer_type: 'cosmological', points: state.cosmological_layer });
   }
   return layers;
 }
@@ -3326,3 +2884,43 @@ function getHighlightTextForWordType(partOfSpeech: string) {
     default: return '#374151'; // gray-700
   }
 }
+
+// Language Dropdown (for translations) - styled like ChapterDropdown
+const LanguageDropdown: React.FC<{
+  languages: string[];
+  selectedLang: string;
+  setSelectedLang: (lang: string) => void;
+}> = ({ languages, selectedLang, setSelectedLang }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const toggleDropdown = () => setIsOpen(!isOpen);
+  const handleSelect = (lang: string) => {
+    setSelectedLang(lang);
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="relative inline-block text-left">
+      <button
+        onClick={toggleDropdown}
+        className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white font-black border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+      >
+        {selectedLang.toUpperCase()}
+        <FontAwesomeIcon icon={faChevronDown} className="ml-2" />
+      </button>
+      {isOpen && (
+        <div className="origin-top-right absolute z-50 mt-2 w-32 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
+          {languages.map(lang => (
+            <button
+              key={lang}
+              onClick={() => handleSelect(lang)}
+              className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${selectedLang === lang ? 'font-bold' : ''}`}
+            >
+              {lang.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
