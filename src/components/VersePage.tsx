@@ -1167,6 +1167,16 @@ const VersePage: React.FC = () => {
               <FontAwesomeIcon icon={faBrain} />
             </button>
           </div>
+          <LanguageSelector
+            selectedLanguage={selectedLanguage}
+            onLanguageChange={(lang) => {
+              setSelectedLanguage(lang);
+              if (!verseAnalysisState.translations[lang]) {
+                translateVerse(lang);
+              }
+            }}
+            availableLanguages={availableLanguages}
+          />
         </div>
       </div>
     </div>
