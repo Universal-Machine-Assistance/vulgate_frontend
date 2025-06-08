@@ -22,6 +22,10 @@ A modern, interactive Latin Bible reader built with React and TypeScript, featur
 
 ### 🎮 Navigation
 - **Arrow Keys**: Left (←) and Right (→) for previous/next verse navigation
+- **Up/Down Arrow Keys**: Navigate between chapters within the current book
+- **Shift + Left/Right**: Cycle through available translation languages
+- **Shift + Up/Down**: Navigate between books (previous/next book)
+- **Audio Controls**: R to record, P to play/pause, G to analyze with AI
 - **Dropdown Menus**: Select specific books, chapters, and verses
 - **Navigation Buttons**: Click previous/next buttons with animated transitions
 - **Smart Input Detection**: Keyboard shortcuts disabled when typing in inputs

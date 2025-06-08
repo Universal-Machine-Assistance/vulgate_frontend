@@ -81,25 +81,25 @@ export const getBookCategoryColor = (bookAbbr: string): string => {
   const category = getBookCategory(bookAbbr);
   switch (category) {
     case 'Pentateuch':
-      return 'hover:bg-blue-100 focus:bg-blue-200';
+      return 'bg-gradient-to-br from-red-100 to-red-200 hover:from-red-200 hover:to-red-300 focus:from-red-200 focus:to-red-300 border-red-300';
     case 'Historical':
-      return 'hover:bg-green-100 focus:bg-green-200';
+      return 'bg-gradient-to-br from-blue-100 to-blue-200 hover:from-blue-200 hover:to-blue-300 focus:from-blue-200 focus:to-blue-300 border-blue-300';
     case 'Wisdom':
-      return 'hover:bg-yellow-100 focus:bg-yellow-200';
+      return 'bg-gradient-to-br from-emerald-100 to-emerald-200 hover:from-emerald-200 hover:to-emerald-300 focus:from-emerald-200 focus:to-emerald-300 border-emerald-300';
     case 'Prophets':
-      return 'hover:bg-red-100 focus:bg-red-200';
+      return 'bg-gradient-to-br from-purple-100 to-purple-200 hover:from-purple-200 hover:to-purple-300 focus:from-purple-200 focus:to-purple-300 border-purple-300';
     case 'Gospels':
-      return 'hover:bg-purple-100 focus:bg-purple-200';
+      return 'bg-gradient-to-br from-amber-100 to-amber-200 hover:from-amber-200 hover:to-amber-300 focus:from-amber-200 focus:to-amber-300 border-amber-300';
     case 'Acts':
-      return 'hover:bg-indigo-100 focus:bg-indigo-200';
+      return 'bg-gradient-to-br from-teal-100 to-teal-200 hover:from-teal-200 hover:to-teal-300 focus:from-teal-200 focus:to-teal-300 border-teal-300';
     case 'Pauline':
-      return 'hover:bg-pink-100 focus:bg-pink-200';
+      return 'bg-gradient-to-br from-rose-100 to-rose-200 hover:from-rose-200 hover:to-rose-300 focus:from-rose-200 focus:to-rose-300 border-rose-300';
     case 'Catholic':
-      return 'hover:bg-orange-100 focus:bg-orange-200';
+      return 'bg-gradient-to-br from-indigo-100 to-indigo-200 hover:from-indigo-200 hover:to-indigo-300 focus:from-indigo-200 focus:to-indigo-300 border-indigo-300';
     case 'Apocalyptic':
-      return 'hover:bg-gray-100 focus:bg-gray-200';
+      return 'bg-gradient-to-br from-orange-100 to-orange-200 hover:from-orange-200 hover:to-orange-300 focus:from-orange-200 focus:to-orange-300 border-orange-300';
     default:
-      return 'hover:bg-gray-100 focus:bg-gray-200';
+      return 'bg-gradient-to-br from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 focus:from-gray-200 focus:to-gray-300 border-gray-300';
   }
 };
 

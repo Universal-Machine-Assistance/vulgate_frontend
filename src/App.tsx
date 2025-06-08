@@ -79,6 +79,36 @@ import successNotificationSound from './assets/sounds/success_notification.mp3';
 // Import Greb logo
 const GrebLogo = require('./GREB LOGO_ with White.png');
 
+// Animated component wrapper for enter/exit animations
+const AnimatedWrapper: React.FC<{
+  show: boolean;
+  children: React.ReactNode;
+  enterClass?: string;
+  exitClass?: string;
+  duration?: number;
+}> = ({ show, children, enterClass = 'smooth-entrance', exitClass = 'smooth-exit', duration = 300 }) => {
+  const [shouldRender, setShouldRender] = useState(show);
+  const [animationClass, setAnimationClass] = useState('');
+
+  useEffect(() => {
+    if (show) {
+      setShouldRender(true);
+      setAnimationClass(enterClass);
+    } else if (shouldRender) {
+      setAnimationClass(exitClass);
+      const timer = setTimeout(() => {
+        setShouldRender(false);
+        setAnimationClass('');
+      }, duration);
+      return () => clearTimeout(timer);
+    }
+  }, [show, enterClass, exitClass, duration, shouldRender]);
+
+  if (!shouldRender) return null;
+
+  return <div className={animationClass}>{children}</div>;
+};
+
 // Constants
 const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
 
@@ -483,23 +513,27 @@ const getColorsFromGrammarClass = (colorClass: string) => {
   return colorMap[bgClass || 'bg-gray-100'] || colorMap['bg-gray-100'];
 };
 
-// Get book category colors based on book type
+// Get book category colors based on book type with more vibrant colors
 const getBookCategoryColor = (bookName: string) => {
   const pentateuch = ['Gn', 'Ex', 'Lv', 'Nm', 'Dt'];
   const historical = ['Jos', 'Jdc', 'Rt', '1Sm', '2Sm', '1Rg', '2Rg', '1Chr', '2Chr', 'Esr', 'Ne', 'Tb', 'Jdt', 'Est', '1Mac', '2Mac'];
   const wisdom = ['Job', 'Ps', 'Pr', 'Qo', 'Ct', 'Ws', 'Si'];
   const prophets = ['Is', 'Jr', 'Lm', 'Ba', 'Ez', 'Dn', 'Os', 'Jl', 'Am', 'Abd', 'Jon', 'Mi', 'Na', 'Hab', 'So', 'Ag', 'Za', 'Ml'];
   const gospels = ['Mt', 'Mc', 'Lc', 'Jo'];
-  const epistles = ['Act', 'Rm', '1Cor', '2Cor', 'Gal', 'Eph', 'Ph', 'Col', '1Th', '2Th', '1Tm', '2Tm', 'Tt', 'Phm', 'Heb', 'Jas', '1Pt', '2Pt', '1Jn', '2Jn', '3Jn', 'Jude'];
+  const paulineEpistles = ['Rm', '1Cor', '2Cor', 'Gal', 'Eph', 'Ph', 'Col', '1Th', '2Th', '1Tm', '2Tm', 'Tt', 'Phm'];
+  const catholicEpistles = ['Heb', 'Jas', '1Pt', '2Pt', '1Jn', '2Jn', '3Jn', 'Jude'];
+  const acts = ['Act'];
   
-  if (pentateuch.includes(bookName)) return 'bg-red-100 hover:bg-red-200';
-  if (historical.includes(bookName)) return 'bg-blue-100 hover:bg-blue-200';
-  if (wisdom.includes(bookName)) return 'bg-green-100 hover:bg-green-200';
-  if (prophets.includes(bookName)) return 'bg-purple-100 hover:bg-purple-200';
-  if (gospels.includes(bookName)) return 'bg-yellow-100 hover:bg-yellow-200';
-  if (epistles.includes(bookName)) return 'bg-pink-100 hover:bg-pink-200';
-  if (bookName === 'Ap') return 'bg-orange-100 hover:bg-orange-200'; // Apocalypse
-  return 'bg-gray-100 hover:bg-gray-200';
+  if (pentateuch.includes(bookName)) return 'bg-gradient-to-br from-red-100 to-red-200 hover:from-red-200 hover:to-red-300 border-red-300';
+  if (historical.includes(bookName)) return 'bg-gradient-to-br from-blue-100 to-blue-200 hover:from-blue-200 hover:to-blue-300 border-blue-300';
+  if (wisdom.includes(bookName)) return 'bg-gradient-to-br from-emerald-100 to-emerald-200 hover:from-emerald-200 hover:to-emerald-300 border-emerald-300';
+  if (prophets.includes(bookName)) return 'bg-gradient-to-br from-purple-100 to-purple-200 hover:from-purple-200 hover:to-purple-300 border-purple-300';
+  if (gospels.includes(bookName)) return 'bg-gradient-to-br from-amber-100 to-amber-200 hover:from-amber-200 hover:to-amber-300 border-amber-300';
+  if (paulineEpistles.includes(bookName)) return 'bg-gradient-to-br from-rose-100 to-rose-200 hover:from-rose-200 hover:to-rose-300 border-rose-300';
+  if (catholicEpistles.includes(bookName)) return 'bg-gradient-to-br from-indigo-100 to-indigo-200 hover:from-indigo-200 hover:to-indigo-300 border-indigo-300';
+  if (acts.includes(bookName)) return 'bg-gradient-to-br from-teal-100 to-teal-200 hover:from-teal-200 hover:to-teal-300 border-teal-300';
+  if (bookName === 'Ap') return 'bg-gradient-to-br from-orange-100 to-orange-200 hover:from-orange-200 hover:to-orange-300 border-orange-300'; // Apocalypse
+  return 'bg-gradient-to-br from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 border-gray-300';
 };
 
 // Book icon mappings
@@ -935,7 +969,8 @@ const BookDropdown: React.FC<{
   books: Book[];
   selectedBookAbbr: string;
   setSelectedBookAbbr: (abbr: string) => void;
-}> = ({ books, selectedBookAbbr, setSelectedBookAbbr }) => {
+  onBookChange?: (book: string, chapter: number, verse: number) => void;
+}> = ({ books, selectedBookAbbr, setSelectedBookAbbr, onBookChange }) => {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -992,7 +1027,14 @@ const BookDropdown: React.FC<{
             <button
               key={book.id}
               className={`w-full text-left px-4 py-2 flex items-center gap-2 font-bold text-lg ${getBookCategoryColor(book.latin_name)} focus:ring-2 focus:ring-black transition rounded ${selectedBookAbbr === book.latin_name ? 'ring-2 ring-black' : ''}`}
-              onClick={() => { setSelectedBookAbbr(book.latin_name); setOpen(false); }}
+              onClick={() => { 
+                setSelectedBookAbbr(book.latin_name); 
+                setOpen(false);
+                // When book changes, navigate to chapter 1 verse 1 of the new book
+                if (onBookChange) {
+                  onBookChange(book.latin_name, 1, 1);
+                }
+              }}
               role="option"
               aria-selected={selectedBookAbbr === book.latin_name}
               tabIndex={0}
@@ -1013,7 +1055,8 @@ const ChapterDropdown: React.FC<{
   chapters: number[];
   currentChapter: number;
   setCurrentChapter: (chapter: number) => void;
-}> = ({ chapters, currentChapter, setCurrentChapter }) => {
+  onChapterChange?: (chapter: number) => void;
+}> = ({ chapters, currentChapter, setCurrentChapter, onChapterChange }) => {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -1066,7 +1109,13 @@ const ChapterDropdown: React.FC<{
             <button
               key={chapter}
               className={`w-full text-left px-4 py-2 flex items-center gap-2 font-bold text-lg hover:bg-yellow-100 focus:bg-yellow-200 transition rounded ${currentChapter === chapter ? 'bg-yellow-200' : ''}`}
-              onClick={() => { setCurrentChapter(chapter); setOpen(false); }}
+              onClick={() => { 
+                setCurrentChapter(chapter); 
+                setOpen(false);
+                if (onChapterChange) {
+                  onChapterChange(chapter);
+                }
+              }}
               role="option"
               aria-selected={currentChapter === chapter}
               tabIndex={0}
@@ -2451,7 +2500,7 @@ const VersePage: React.FC = () => {
     }
   };
 
-  // Enhanced keyboard navigation with audio controls
+  // Enhanced keyboard navigation with audio controls and language/book switching
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Only handle keys if no input/textarea is focused and not during transitions
@@ -2462,7 +2511,7 @@ const VersePage: React.FC = () => {
       
       if (isInputFocused || isTransitioning || !selectedVerse) return;
       
-      console.log('Key pressed:', event.key); // Debug log
+      console.log('Key pressed:', event.key, 'Shift:', event.shiftKey); // Debug log
       
       // Audio controls
       if (event.key.toLowerCase() === 'r') {
@@ -2488,31 +2537,75 @@ const VersePage: React.FC = () => {
         const fakeEvent = { altKey: false, preventDefault: () => {} } as React.MouseEvent;
         handleEnhanceClick(fakeEvent);
       }
-      // Navigation controls
+      // Navigation controls with Shift key enhancements
       else if (event.key === 'ArrowLeft') {
         event.preventDefault();
-        navigateToPreviousVerse();
+        if (event.shiftKey) {
+          // Shift + Left: Change language (previous)
+          const availableLanguages = Object.keys(verseAnalysisState.translations || {});
+          if (availableLanguages.length > 0) {
+            const currentIndex = availableLanguages.indexOf(selectedTranslationLang);
+            const prevIndex = currentIndex <= 0 ? availableLanguages.length - 1 : currentIndex - 1;
+            setSelectedTranslationLang(availableLanguages[prevIndex]);
+            console.log('Language changed to:', availableLanguages[prevIndex]);
+          }
+        } else {
+          navigateToPreviousVerse();
+        }
       } else if (event.key === 'ArrowRight') {
         event.preventDefault();
-        navigateToNextVerse();
+        if (event.shiftKey) {
+          // Shift + Right: Change language (next)
+          const availableLanguages = Object.keys(verseAnalysisState.translations || {});
+          if (availableLanguages.length > 0) {
+            const currentIndex = availableLanguages.indexOf(selectedTranslationLang);
+            const nextIndex = currentIndex >= availableLanguages.length - 1 ? 0 : currentIndex + 1;
+            setSelectedTranslationLang(availableLanguages[nextIndex]);
+            console.log('Language changed to:', availableLanguages[nextIndex]);
+          }
+        } else {
+          navigateToNextVerse();
+        }
       } else if (event.key === 'ArrowUp') {
         event.preventDefault();
-        if (currentChapter > 1) {
-          setCurrentChapter(currentChapter - 1);
-          updateURL(selectedBookAbbr, currentChapter - 1, 1);
+        if (event.shiftKey) {
+          // Shift + Up: Change book (previous)
+          const currentBookIndex = books.findIndex(b => b.latin_name === selectedBookAbbr);
+          if (currentBookIndex > 0) {
+            const previousBook = books[currentBookIndex - 1];
+            setSelectedBookAbbr(previousBook.latin_name);
+            updateURL(previousBook.latin_name, 1, 1);
+            console.log('Book changed to:', previousBook.latin_name);
+          }
+        } else {
+          if (currentChapter > 1) {
+            setCurrentChapter(currentChapter - 1);
+            updateURL(selectedBookAbbr, currentChapter - 1, 1);
+          }
         }
       } else if (event.key === 'ArrowDown') {
         event.preventDefault();
-        if (currentChapter < chapters.length) {
-          setCurrentChapter(currentChapter + 1);
-          updateURL(selectedBookAbbr, currentChapter + 1, 1);
+        if (event.shiftKey) {
+          // Shift + Down: Change book (next)
+          const currentBookIndex = books.findIndex(b => b.latin_name === selectedBookAbbr);
+          if (currentBookIndex >= 0 && currentBookIndex < books.length - 1) {
+            const nextBook = books[currentBookIndex + 1];
+            setSelectedBookAbbr(nextBook.latin_name);
+            updateURL(nextBook.latin_name, 1, 1);
+            console.log('Book changed to:', nextBook.latin_name);
+          }
+        } else {
+          if (currentChapter < chapters.length) {
+            setCurrentChapter(currentChapter + 1);
+            updateURL(selectedBookAbbr, currentChapter + 1, 1);
+          }
         }
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedVerse, verses.length, isTransitioning, currentChapter, chapters.length, selectedBookAbbr, updateURL, navigationInProgress, audioAvailable, isPlaying, audioSource]);
+  }, [selectedVerse, verses.length, isTransitioning, currentChapter, chapters.length, selectedBookAbbr, updateURL, navigationInProgress, audioAvailable, isPlaying, audioSource, verseAnalysisState.translations, selectedTranslationLang, setSelectedTranslationLang, books]);
 
   // Ensure all supported translations are available
   const ensureAllTranslationsAvailable = async () => {
@@ -3267,27 +3360,45 @@ const VersePage: React.FC = () => {
             <button
               onClick={navigateToPreviousVerse}
               disabled={!selectedVerse || (selectedVerse.verse_number <= 1 && currentChapter <= 1) || isTransitioning || navigationInProgress}
-              className="px-3 py-2 text-lg font-black text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-30 transition-all duration-200 border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px]"
+              className="w-12 h-12 text-lg font-black text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-30 transition-all duration-200 rounded-full shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 flex items-center justify-center"
               title="Previous verse (← arrow key) - crosses chapters"
             >
               <FontAwesomeIcon icon={faArrowLeft} />
             </button>
-            <BookDropdown books={books} selectedBookAbbr={selectedBookAbbr} setSelectedBookAbbr={setSelectedBookAbbr} />
-            <ChapterDropdown chapters={chapters} currentChapter={currentChapter} setCurrentChapter={setCurrentChapter} />
+            <BookDropdown 
+              books={books} 
+              selectedBookAbbr={selectedBookAbbr} 
+              setSelectedBookAbbr={setSelectedBookAbbr}
+              onBookChange={(book, chapter, verse) => {
+                updateURL(book, chapter, verse);
+              }}
+            />
+            <ChapterDropdown 
+              chapters={chapters} 
+              currentChapter={currentChapter} 
+              setCurrentChapter={setCurrentChapter}
+              onChapterChange={(chapter) => {
+                updateURL(selectedBookAbbr, chapter, 1);
+              }}
+            />
             <VerseDropdown verses={verses} selectedVerseNumber={selectedVerse?.verse_number || 1} handleVerseChange={handleVerseChange} />
             {/* Language dropdown shows when translations available */}
-            {verseAnalysisState.translations && Object.keys(verseAnalysisState.translations).length > 0 && (
+            <AnimatedWrapper 
+              show={verseAnalysisState.translations && Object.keys(verseAnalysisState.translations).length > 0}
+              enterClass="smooth-entrance"
+              exitClass="smooth-exit"
+            >
               <LanguageDropdown
-                languages={Object.keys(verseAnalysisState.translations)}
+                languages={Object.keys(verseAnalysisState.translations || {})}
                 selectedLang={selectedTranslationLang}
                 setSelectedLang={setSelectedTranslationLang}
-                translations={verseAnalysisState.translations}
+                translations={verseAnalysisState.translations || {}}
               />
-            )}
+            </AnimatedWrapper>
             <button
               onClick={navigateToNextVerse}
               disabled={!selectedVerse || (selectedVerse.verse_number >= verses.length && currentChapter >= chapters.length) || isTransitioning || navigationInProgress}
-              className="px-3 py-2 text-lg font-black text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-30 transition-all duration-200 border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px]"
+              className="w-12 h-12 text-lg font-black text-white bg-purple-500 hover:bg-purple-600 disabled:opacity-30 transition-all duration-200 rounded-full shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 flex items-center justify-center"
               title="Next verse (→ arrow key) - crosses chapters"
             >
               <FontAwesomeIcon icon={faArrowRight} />
@@ -3312,7 +3423,7 @@ const VersePage: React.FC = () => {
                 </span>
               )}
             </div>
-            <div className="verse-container min-h-[120px] flex items-center justify-center px-4 py-2">
+            <div className="verse-container min-h-[120px] flex items-center justify-center px-4 py-2 bg-white rounded-2xl shadow-lg shadow-gray-200/40 border border-gray-100">
               {selectedVerse && (
                 <div className={`verse-content ${verseAnimation !== 'none' ? verseAnimation : ''}`}>
                   <p className="text-xl font-bold text-center break-words whitespace-pre-line w-full max-w-full text-black leading-relaxed">
@@ -3401,10 +3512,14 @@ const VersePage: React.FC = () => {
             )}
             
             {/* Simplified Translation Display */}
-            {!isVerseLoading && verseAnalysisState.translations && Object.keys(verseAnalysisState.translations).length > 0 && (
+            <AnimatedWrapper 
+              show={!isVerseLoading && verseAnalysisState.translations && Object.keys(verseAnalysisState.translations).length > 0}
+              enterClass="smooth-entrance-up"
+              exitClass="smooth-exit-down"
+            >
               <div className="mt-4 border-t border-gray-200 pt-3">
                 {(() => {
-                  const currentTranslation = verseAnalysisState.translations[selectedTranslationLang];
+                  const currentTranslation = verseAnalysisState.translations?.[selectedTranslationLang] || '';
                   
                   return (
                     <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
@@ -3415,7 +3530,7 @@ const VersePage: React.FC = () => {
                   );
                 })()}
               </div>
-            )}
+            </AnimatedWrapper>
           </div>
 
           {/* Play/Pause and Record buttons */}
@@ -3554,7 +3669,11 @@ const VersePage: React.FC = () => {
               </h3>
               <div className="space-y-4">
                 {/* Word Definition Card */}
-                {verseAnalysisState.wordInfo && (
+                <AnimatedWrapper 
+                  show={!!verseAnalysisState.wordInfo}
+                  enterClass="smooth-entrance"
+                  exitClass="smooth-exit"
+                >
                   <WordInfoComponent 
                     wordInfo={verseAnalysisState.wordInfo}
                     onNavigateToVerse={(reference: string) => {
@@ -3566,7 +3685,7 @@ const VersePage: React.FC = () => {
                       }
                     }}
                   />
-                )}
+                </AnimatedWrapper>
                 
                 {/* Theological interpretation */}
                 {analysisResultHasLayers(verseAnalysisState) ? (
