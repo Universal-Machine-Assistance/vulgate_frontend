@@ -2168,18 +2168,7 @@ const VersePage: React.FC = () => {
     checkOpenAIAvailability();
   }, []);
 
-  // Helper function to get the last verse number of a chapter
-  const getLastVerseOfChapter = async (book: string, chapter: number): Promise<number> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/verses/by-reference/${book}/${chapter}`);
-      if (!response.ok) return 1;
-      const verses = await response.json();
-      return verses.length > 0 ? verses[verses.length - 1].verse_number : 1;
-    } catch (error) {
-      console.error('Error fetching chapter verses:', error);
-      return 1;
-    }
-  };
+
 
   // Enhanced navigation functions for cross-chapter support
   const navigateToPreviousVerse = async () => {
@@ -2191,9 +2180,24 @@ const VersePage: React.FC = () => {
     } else if (currentChapter > 1) {
       // Navigate to last verse of previous chapter
       const previousChapter = currentChapter - 1;
-      const lastVerse = await getLastVerseOfChapter(selectedBookAbbr, previousChapter);
-      setCurrentChapter(previousChapter);
-      updateURL(selectedBookAbbr, previousChapter, lastVerse);
+      
+      try {
+        // Fetch the verses for the previous chapter first
+        const response = await fetch(`${API_BASE_URL}/verses/by-reference/${selectedBookAbbr}/${previousChapter}`);
+        if (!response.ok) throw new Error('Failed to fetch verses');
+        
+        const previousChapterVerses = await response.json();
+        const lastVerseNumber = previousChapterVerses.length > 0 ? previousChapterVerses[previousChapterVerses.length - 1].verse_number : 1;
+        
+        // Now set the chapter and navigate to the last verse
+        setCurrentChapter(previousChapter);
+        updateURL(selectedBookAbbr, previousChapter, lastVerseNumber);
+      } catch (error) {
+        console.error('Error navigating to previous chapter:', error);
+        // Fallback: just go to verse 1 of previous chapter
+        setCurrentChapter(currentChapter - 1);
+        updateURL(selectedBookAbbr, currentChapter - 1, 1);
+      }
     }
   };
 
