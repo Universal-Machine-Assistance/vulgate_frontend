@@ -66,7 +66,13 @@ import {
   faClipboardList,
   faSpinner,
   faCheckSquare,
-  faSquare
+  faSquare,
+  faFont,
+  faExchangeAlt,
+  faQuoteLeft,
+  faRobot,
+  faBookOpen,
+  faGem
 } from '@fortawesome/free-solid-svg-icons';
 import successNotificationSound from './assets/sounds/success_notification.mp3';
 
@@ -255,7 +261,13 @@ library.add(
   faClipboardList,
   faSpinner,
   faCheckSquare,
-  faSquare
+  faSquare,
+  faFont,
+  faExchangeAlt,
+  faQuoteLeft,
+  faRobot,
+  faBookOpen,
+  faGem
 );
 
 interface Book {
@@ -328,6 +340,51 @@ const GRAMMAR_COLORS: Record<GrammarColorKey, string> = {
   'pronoun': 'bg-red-100 text-red-800 border-red-300',
   'participle': 'bg-indigo-100 text-indigo-800 border-indigo-300',
   'default': 'bg-gray-100 text-gray-800 border-gray-300'
+};
+
+// Simple markdown renderer for basic formatting
+const renderMarkdown = (text: string): JSX.Element => {
+  if (!text) return <span>{text}</span>;
+  
+  // Split by bold markers and process
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  
+  return (
+    <span>
+      {parts.map((part, index) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          // Bold text with metallic effect
+          const boldText = part.slice(2, -2);
+          return (
+            <strong 
+              key={index} 
+              className="font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600 drop-shadow-sm"
+              style={{
+                textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                fontWeight: '900'
+              }}
+            >
+              {boldText}
+            </strong>
+          );
+        }
+        return <span key={index}>{part}</span>;
+      })}
+    </span>
+  );
+};
+
+// Translation type detection and icon mapping
+const getTranslationTypeIcon = (language: string, translationText: string) => {
+  // Simple heuristics to determine translation type
+  const hasWordForWord = translationText.includes('*') || translationText.includes('[') || translationText.includes('(');
+  const isLiteral = hasWordForWord || translationText.split(' ').length <= 15;
+  
+  if (isLiteral) {
+    return { icon: faQuoteLeft, type: 'Literal', color: 'text-blue-600' };
+  } else {
+    return { icon: faExchangeAlt, type: 'Dynamic', color: 'text-green-600' };
+  }
 };
 
 // Helper function to extract colors from Tailwind classes
@@ -2823,6 +2880,7 @@ const VersePage: React.FC = () => {
                 languages={Object.keys(verseAnalysisState.translations)}
                 selectedLang={selectedTranslationLang}
                 setSelectedLang={setSelectedTranslationLang}
+                translations={verseAnalysisState.translations}
               />
             )}
             <button
@@ -2940,16 +2998,41 @@ const VersePage: React.FC = () => {
               </div>
             )}
             
-            {/* Translation Tabs */}
+            {/* Enhanced Translation Display with Markdown and Icons */}
             {!isVerseLoading && verseAnalysisState.translations && Object.keys(verseAnalysisState.translations).length > 0 && (
               <div className="mt-4 border-t-2 border-gray-200 pt-4">
-                <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
-                  <div className="text-sm text-gray-600 mb-1 text-center font-semibold">
-                    {selectedTranslationLang.toUpperCase()} Translation
-                  </div>
-                  <div className="text-gray-800 leading-relaxed text-center text-lg italic">
-                    {verseAnalysisState.translations[selectedTranslationLang]}
-                  </div>
+                <div className="bg-gradient-to-br from-gray-50 via-white to-gray-50 rounded-lg p-6 border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                  {(() => {
+                    const currentTranslation = verseAnalysisState.translations[selectedTranslationLang];
+                    const translationType = getTranslationTypeIcon(selectedTranslationLang, currentTranslation);
+                    const languageName = LANGUAGES.find(lang => lang.code === selectedTranslationLang)?.name || selectedTranslationLang.toUpperCase();
+                    
+                    return (
+                      <>
+                        <div className="flex items-center justify-center gap-3 mb-3">
+                          <FontAwesomeIcon 
+                            icon={translationType.icon} 
+                            className={`text-lg ${translationType.color}`}
+                          />
+                          <div className="text-center">
+                            <div className="text-sm font-black uppercase tracking-wide text-gray-700">
+                              {languageName} • {translationType.type} Translation
+                            </div>
+                            <div className="text-xs text-gray-500 uppercase tracking-wider">
+                              {translationType.type === 'Literal' ? 'Word-for-word' : 'Thought-for-thought'}
+                            </div>
+                          </div>
+                          <FontAwesomeIcon 
+                            icon={faGem} 
+                            className="text-lg text-yellow-600"
+                          />
+                        </div>
+                        <div className="text-gray-800 leading-relaxed text-center text-lg">
+                          {renderMarkdown(currentTranslation)}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             )}
@@ -3208,12 +3291,13 @@ function getHighlightTextForWordType(partOfSpeech: string) {
   }
 }
 
-// Language Dropdown (for translations) - styled like ChapterDropdown
+// Enhanced Language Dropdown with translation type indicators
 const LanguageDropdown: React.FC<{
   languages: string[];
   selectedLang: string;
   setSelectedLang: (lang: string) => void;
-}> = ({ languages, selectedLang, setSelectedLang }) => {
+  translations?: { [key: string]: string };
+}> = ({ languages, selectedLang, setSelectedLang, translations = {} }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const toggleDropdown = () => setIsOpen(!isOpen);
@@ -3222,26 +3306,46 @@ const LanguageDropdown: React.FC<{
     setIsOpen(false);
   };
 
+  const currentTranslationType = translations[selectedLang] 
+    ? getTranslationTypeIcon(selectedLang, translations[selectedLang])
+    : { icon: faLanguage, type: 'Translation', color: 'text-white' };
+
   return (
     <div className="relative inline-block text-left">
       <button
         onClick={toggleDropdown}
-        className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white font-black border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+        className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white font-black border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center gap-2"
       >
+        <FontAwesomeIcon icon={currentTranslationType.icon} className="text-white" />
         {selectedLang.toUpperCase()}
-        <FontAwesomeIcon icon={faChevronDown} className="ml-2" />
+        <FontAwesomeIcon icon={faChevronDown} className="ml-1" />
       </button>
       {isOpen && (
-        <div className="origin-top-right absolute z-50 mt-2 w-32 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
-          {languages.map(lang => (
-            <button
-              key={lang}
-              onClick={() => handleSelect(lang)}
-              className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${selectedLang === lang ? 'font-bold' : ''}`}
-            >
-              {lang.toUpperCase()}
-            </button>
-          ))}
+        <div className="origin-top-right absolute z-50 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
+          {languages.map(lang => {
+            const langTranslationType = translations[lang] 
+              ? getTranslationTypeIcon(lang, translations[lang])
+              : { icon: faLanguage, type: 'Translation', color: 'text-gray-500' };
+            const languageName = LANGUAGES.find(l => l.code === lang)?.name || lang.toUpperCase();
+            
+            return (
+              <button
+                key={lang}
+                onClick={() => handleSelect(lang)}
+                className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedLang === lang ? 'font-bold bg-gray-50' : ''}`}
+              >
+                <FontAwesomeIcon 
+                  icon={langTranslationType.icon} 
+                  className={langTranslationType.color}
+                />
+                <div className="flex flex-col">
+                  <span>{languageName}</span>
+                  <span className="text-xs text-gray-500">{langTranslationType.type}</span>
+                </div>
+                {selectedLang === lang && <FontAwesomeIcon icon={faGem} className="ml-auto text-yellow-600" />}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
