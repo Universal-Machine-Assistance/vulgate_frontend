@@ -2240,6 +2240,79 @@ const VersePage: React.FC = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [selectedVerse, verses.length, isTransitioning, currentChapter, chapters.length, selectedBookAbbr, updateURL]);
 
+  // Ensure all supported translations are available
+  const ensureAllTranslationsAvailable = async () => {
+    if (!selectedVerse) return;
+
+    const supportedLanguages = LANGUAGES.map(lang => lang.code);
+    const currentTranslations = verseAnalysisState.translations || {};
+    const missingLanguages = supportedLanguages.filter(lang => !currentTranslations[lang]);
+
+    if (missingLanguages.length === 0) {
+      console.log('All translations already available');
+      return;
+    }
+
+    console.log(`Fetching missing translations for: ${missingLanguages.join(', ')}`);
+    setIsGeneratingTranslations(true);
+
+    // Fetch missing translations in parallel
+    const translationPromises = missingLanguages.map(async (language) => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/dictionary/translate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            verse: selectedVerse.text, 
+            language: language
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            return { language, translation: result.translation };
+          }
+        }
+        console.warn(`Failed to fetch translation for ${language}`);
+        return null;
+      } catch (error) {
+        console.error(`Error fetching translation for ${language}:`, error);
+        return null;
+      }
+    });
+
+    const results = await Promise.all(translationPromises);
+    const newTranslations: { [key: string]: string } = {};
+
+    results.forEach(result => {
+      if (result) {
+        newTranslations[result.language] = result.translation;
+      }
+    });
+
+    if (Object.keys(newTranslations).length > 0) {
+      // Update verse analysis state with new translations
+      setVerseAnalysisState(prev => ({
+        ...prev,
+        translations: {
+          ...prev.translations,
+          ...newTranslations
+        }
+      }));
+
+      // Update available translations
+      setAvailableTranslations(prev => ({
+        ...prev,
+        ...newTranslations
+      }));
+
+      console.log(`Successfully fetched ${Object.keys(newTranslations).length} translations`);
+    }
+
+    setIsGeneratingTranslations(false);
+  };
+
   const loadOpenAIAnalysis = async () => {
     if (!selectedVerse) return;
     
@@ -2247,7 +2320,7 @@ const VersePage: React.FC = () => {
     console.log(`Loading OpenAI analysis for: ${verseRef}`);
     
     setIsOpenAIAnalyzing(true);
-    setTheologicalInterpretation('🤖 Analyzing with AI...');
+    setTheologicalInterpretation('🤖 Analyzing with AI and fetching translations...');
     
     try {
       const response = await fetch(`${API_BASE_URL}/dictionary/analyze/verse/openai`, {
@@ -2255,7 +2328,8 @@ const VersePage: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           verse: selectedVerse.text, 
-          reference: verseRef
+          reference: verseRef,
+          include_translations: true // Request translations with analysis
         })
       });
 
@@ -2297,7 +2371,7 @@ const VersePage: React.FC = () => {
           });
         }
         
-        // Update verse analysis state with OpenAI data
+        // Update verse analysis state with OpenAI data including translations
         setVerseAnalysisState((prev: VerseAnalysisState) => ({
           ...prev,
           analysis: newAnalysis,
@@ -2306,9 +2380,21 @@ const VersePage: React.FC = () => {
           theological_layer: analysisResult.theological_layer || [],
           jungian_layer: analysisResult.jungian_layer || [],
           cosmological_layer: analysisResult.cosmological_layer || [],
+          translations: {
+            ...prev.translations,
+            ...(analysisResult.translations || {})
+          },
           isLoading: false,
           loadingMessage: ''
         }));
+
+        // Update available translations state
+        if (analysisResult.translations) {
+          setAvailableTranslations(prev => ({
+            ...prev,
+            ...analysisResult.translations
+          }));
+        }
 
         // Update theological interpretation
         let interpretation = '';
@@ -2323,7 +2409,7 @@ const VersePage: React.FC = () => {
           interpretation += '🌌 Cosmological Layer:\n' + analysisResult.cosmological_layer.join('\n');
         }
         
-        setTheologicalInterpretation((interpretation || 'AI analysis complete.') + ' 🤖 Enhanced with Greb AI');
+        setTheologicalInterpretation((interpretation || 'AI analysis complete.') + ' 🤖 Enhanced with Greb AI + Translations');
         
         // Cache the OpenAI results
         try {
@@ -2333,6 +2419,9 @@ const VersePage: React.FC = () => {
         } catch (error) {
           console.warn('Failed to cache OpenAI analysis:', error);
         }
+
+        // Check if we need to fetch missing translations
+        await ensureAllTranslationsAvailable();
         
       } else {
         setTheologicalInterpretation('❌ Greb AI analysis failed');
@@ -2603,6 +2692,9 @@ const VersePage: React.FC = () => {
       const verseRef = `${selectedBookAbbr} ${currentChapter}:${selectedVerse.verse_number}`;
       const cacheKey = `verse_analysis_${verseRef}`;
       localStorage.setItem(cacheKey, JSON.stringify(data));
+
+      // Ensure all translations are available after analysis
+      await ensureAllTranslationsAvailable();
 
     } catch (error) {
       console.error('Error analyzing verse:', error);
