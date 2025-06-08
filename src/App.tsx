@@ -751,35 +751,7 @@ const WordInfoComponent: React.FC<{
 
   const grammarColorClasses = getGrammarColorClasses(currentWordInfo.partOfSpeech);
 
-  // Get source styling based on the source type
-  const getSourceBadge = (source?: string, confidence?: number) => {
-    switch (source) {
-      case "dictionary":
-        return <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium transition-all duration-300">📚 Dictionary</span>;
-      case "morphological_analysis":
-        return <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium transition-all duration-300">🔍 Morphological Analysis</span>;
-      case "greb":
-        return (
-          <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-medium transition-all duration-300 flex items-center gap-1">
-            <img src={GrebLogo} alt="Greb" className="w-3 h-3" />
-            Greb Enhanced
-          </span>
-        );
-      case "greb_verse":
-        return (
-          <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-medium transition-all duration-300 flex items-center gap-1">
-            <img src={GrebLogo} alt="Greb" className="w-3 h-3" />
-            Verse Analysis
-          </span>
-        );
-      case "loading":
-        return <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-medium transition-all duration-300 animate-pulse">⏳ Loading...</span>;
-      case "error":
-        return <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-medium transition-all duration-300">❌ Error</span>;
-      default:
-        return <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-medium transition-all duration-300">❓ Unknown</span>;
-    }
-  };
+
 
   const handleRegenerate = async () => {
     if (onRegenerate && currentWordInfo.latin) {
@@ -811,7 +783,6 @@ const WordInfoComponent: React.FC<{
             {currentWordInfo.latin}
           </h3>
           <div className="flex items-center gap-2">
-            {getSourceBadge(currentWordInfo.source, currentWordInfo.confidence)}
             {onRegenerate && currentWordInfo.source !== 'loading' && (
               <button
                 onClick={handleRegenerate}
@@ -842,9 +813,6 @@ const WordInfoComponent: React.FC<{
             <p className="transition-all duration-300"><strong className="text-black font-black uppercase">Pronunciation:</strong> <span className="font-mono">/{currentWordInfo.pronunciation}/</span></p>
           )}
           <p className="transition-all duration-300"><strong className="text-black font-black uppercase">Etymology:</strong> <span className="font-medium">{currentWordInfo.etymology}</span></p>
-          {currentWordInfo.confidence && currentWordInfo.confidence < 1.0 && (
-            <p className="text-xs text-gray-600 transition-all duration-300 font-medium">Confidence: {Math.round(currentWordInfo.confidence * 100)}%</p>
-          )}
         </div>
         
         {/* Add verse relationships section */}
