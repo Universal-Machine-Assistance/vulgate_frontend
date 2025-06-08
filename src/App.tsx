@@ -2170,48 +2170,86 @@ const VersePage: React.FC = () => {
 
 
 
-  // Enhanced navigation functions for cross-chapter support
+  // Navigation state to prevent rapid clicks and race conditions
+  const [navigationInProgress, setNavigationInProgress] = useState(false);
+
+  // Enhanced navigation functions for cross-chapter support with proper synchronization
   const navigateToPreviousVerse = async () => {
-    if (!selectedVerse) return;
+    if (!selectedVerse || navigationInProgress || isTransitioning) return;
     
-    if (selectedVerse.verse_number > 1) {
-      // Navigate within current chapter
-      handleVerseChangeWithAnimation(selectedVerse.verse_number - 1, 'slide-up');
-    } else if (currentChapter > 1) {
-      // Navigate to last verse of previous chapter
-      const previousChapter = currentChapter - 1;
-      
-      try {
-        // Fetch the verses for the previous chapter first
-        const response = await fetch(`${API_BASE_URL}/verses/by-reference/${selectedBookAbbr}/${previousChapter}`);
-        if (!response.ok) throw new Error('Failed to fetch verses');
+    setNavigationInProgress(true);
+    
+    try {
+      if (selectedVerse.verse_number > 1) {
+        // Navigate within current chapter
+        handleVerseChangeWithAnimation(selectedVerse.verse_number - 1, 'slide-up');
+      } else if (currentChapter > 1) {
+        // Navigate to last verse of previous chapter
+        const previousChapter = currentChapter - 1;
         
-        const previousChapterVerses = await response.json();
-        const lastVerseNumber = previousChapterVerses.length > 0 ? previousChapterVerses[previousChapterVerses.length - 1].verse_number : 1;
-        
-        // Now set the chapter and navigate to the last verse
-        setCurrentChapter(previousChapter);
-        updateURL(selectedBookAbbr, previousChapter, lastVerseNumber);
-      } catch (error) {
-        console.error('Error navigating to previous chapter:', error);
-        // Fallback: just go to verse 1 of previous chapter
-        setCurrentChapter(currentChapter - 1);
-        updateURL(selectedBookAbbr, currentChapter - 1, 1);
+        try {
+          // Fetch the verses for the previous chapter first
+          const response = await fetch(`${API_BASE_URL}/verses/by-reference/${selectedBookAbbr}/${previousChapter}`);
+          if (!response.ok) throw new Error('Failed to fetch verses');
+          
+          const previousChapterVerses = await response.json();
+          const lastVerseNumber = previousChapterVerses.length > 0 ? previousChapterVerses[previousChapterVerses.length - 1].verse_number : 1;
+          
+          console.log(`Cross-chapter navigation: Going to ${selectedBookAbbr} ${previousChapter}:${lastVerseNumber}`);
+          
+          // Update chapter first, then URL - this will trigger verse loading
+          setCurrentChapter(previousChapter);
+          
+          // Small delay to let chapter change take effect
+          setTimeout(() => {
+            updateURL(selectedBookAbbr, previousChapter, lastVerseNumber);
+          }, 50);
+          
+        } catch (error) {
+          console.error('Error navigating to previous chapter:', error);
+          // Fallback: just go to verse 1 of previous chapter
+          setCurrentChapter(currentChapter - 1);
+          setTimeout(() => {
+            updateURL(selectedBookAbbr, currentChapter - 1, 1);
+          }, 50);
+        }
       }
+    } finally {
+      // Reset navigation lock after a delay
+      setTimeout(() => {
+        setNavigationInProgress(false);
+      }, 300);
     }
   };
 
   const navigateToNextVerse = async () => {
-    if (!selectedVerse) return;
+    if (!selectedVerse || navigationInProgress || isTransitioning) return;
     
-    if (selectedVerse.verse_number < verses.length) {
-      // Navigate within current chapter
-      handleVerseChangeWithAnimation(selectedVerse.verse_number + 1, 'slide-down');
-    } else if (currentChapter < chapters.length) {
-      // Navigate to verse 1 of next chapter
-      const nextChapter = currentChapter + 1;
-      setCurrentChapter(nextChapter);
-      updateURL(selectedBookAbbr, nextChapter, 1);
+    setNavigationInProgress(true);
+    
+    try {
+      if (selectedVerse.verse_number < verses.length) {
+        // Navigate within current chapter
+        handleVerseChangeWithAnimation(selectedVerse.verse_number + 1, 'slide-down');
+      } else if (currentChapter < chapters.length) {
+        // Navigate to verse 1 of next chapter
+        const nextChapter = currentChapter + 1;
+        
+        console.log(`Cross-chapter navigation: Going to ${selectedBookAbbr} ${nextChapter}:1`);
+        
+        // Update chapter first, then URL
+        setCurrentChapter(nextChapter);
+        
+        // Small delay to let chapter change take effect
+        setTimeout(() => {
+          updateURL(selectedBookAbbr, nextChapter, 1);
+        }, 50);
+      }
+    } finally {
+      // Reset navigation lock after a delay
+      setTimeout(() => {
+        setNavigationInProgress(false);
+      }, 300);
     }
   };
 
@@ -2249,7 +2287,7 @@ const VersePage: React.FC = () => {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedVerse, verses.length, isTransitioning, currentChapter, chapters.length, selectedBookAbbr, updateURL]);
+  }, [selectedVerse, verses.length, isTransitioning, currentChapter, chapters.length, selectedBookAbbr, updateURL, navigationInProgress]);
 
   // Ensure all supported translations are available
   const ensureAllTranslationsAvailable = async () => {
@@ -2770,7 +2808,7 @@ const VersePage: React.FC = () => {
           <div className="bg-white border-4 border-black rounded-xl shadow-2xl shadow-gray-400/50 p-4 w-full flex flex-wrap gap-4 justify-center items-center mb-6">
             <button
               onClick={navigateToPreviousVerse}
-              disabled={!selectedVerse || (selectedVerse.verse_number <= 1 && currentChapter <= 1) || isTransitioning}
+              disabled={!selectedVerse || (selectedVerse.verse_number <= 1 && currentChapter <= 1) || isTransitioning || navigationInProgress}
               className="px-3 py-2 text-lg font-black text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-30 transition-all duration-200 border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px]"
               title="Previous verse (← arrow key) - crosses chapters"
             >
@@ -2789,7 +2827,7 @@ const VersePage: React.FC = () => {
             )}
             <button
               onClick={navigateToNextVerse}
-              disabled={!selectedVerse || (selectedVerse.verse_number >= verses.length && currentChapter >= chapters.length) || isTransitioning}
+              disabled={!selectedVerse || (selectedVerse.verse_number >= verses.length && currentChapter >= chapters.length) || isTransitioning || navigationInProgress}
               className="px-3 py-2 text-lg font-black text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-30 transition-all duration-200 border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px]"
               title="Next verse (→ arrow key) - crosses chapters"
             >
@@ -2802,6 +2840,18 @@ const VersePage: React.FC = () => {
             <div className="font-bold text-lg mb-2 flex items-center gap-2 justify-center">
               <FontAwesomeIcon icon={faBook} />
               {BOOK_NAMES[selectedBookAbbr] || selectedBookAbbr} {currentChapter}:{selectedVerse?.verse_number}
+              {/* Navigation state indicator */}
+              {navigationInProgress && (
+                <span className="text-sm text-blue-600 animate-pulse ml-2">
+                  ⏳ Navigating...
+                </span>
+              )}
+              {/* Sync verification */}
+              {selectedVerse && location.pathname !== `/${selectedBookAbbr}/${currentChapter}/${selectedVerse.verse_number}` && !navigationInProgress && (
+                <span className="text-sm text-red-600 ml-2" title="Verse may be out of sync">
+                  ⚠️ Syncing...
+                </span>
+              )}
             </div>
             <div className="verse-container min-h-[120px] flex items-center justify-center px-4 py-2">
               {selectedVerse && (
