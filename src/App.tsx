@@ -1630,6 +1630,7 @@ const GlobalEditComponent: React.FC<{
 const VersePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  
   const [books, setBooks] = useState<Book[]>([]); // Initialize with empty array
   const [selectedBookAbbr, setSelectedBookAbbr] = useState<string>("Gn");
   const [chapters, setChapters] = useState<number[]>([]);
@@ -1693,6 +1694,11 @@ const VersePage: React.FC = () => {
   
   // Global edit mode state
   const [isGlobalEditMode, setIsGlobalEditMode] = useState(false);
+
+  // Navigation and animation state
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [verseAnimation, setVerseAnimation] = useState<'slide-down' | 'slide-up' | 'none'>('none');
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Initialize AudioContext
   useEffect(() => {
@@ -1818,7 +1824,7 @@ const VersePage: React.FC = () => {
 
   // Handle verse changes
   useEffect(() => {
-    if (selectedVerse && !isNavigating) {
+    if (selectedVerse) {
       // First check if we have cached data before clearing state
       const verseRef = `${selectedBookAbbr} ${currentChapter}:${selectedVerse.verse_number}`;
       const cacheKey = `verse_analysis_${verseRef}`;
@@ -1975,16 +1981,13 @@ const VersePage: React.FC = () => {
         setCurrentChapter(newChapter);
       }
       
-              // Store the target verse number for when verses are loaded
-        if (verses.length > 0) {
-          const targetVerse = verses.find(v => v.verse_number === newVerseNumber);
-          if (targetVerse && (!selectedVerse || selectedVerse.verse_number !== newVerseNumber)) {
-            setIsNavigating(true);
-            setSelectedVerse(targetVerse);
-            // Reset navigation flag after state update
-            setTimeout(() => setIsNavigating(false), 100);
-          }
+      // If verses are already loaded, select the verse immediately
+      if (verses.length > 0) {
+        const targetVerse = verses.find(v => v.verse_number === newVerseNumber);
+        if (targetVerse && (!selectedVerse || selectedVerse.verse_number !== newVerseNumber)) {
+          setSelectedVerse(targetVerse);
         }
+      }
     } else if (pathParts.length === 0) {
       // Root path - default to Genesis 1:1
       navigate('/Gn/1/1', { replace: true });
@@ -1999,13 +2002,6 @@ const VersePage: React.FC = () => {
       navigate(newPath, { replace: true });
     }
   }, [navigate, location.pathname]);
-
-  // Debounced state update to prevent rapid changes
-  const [isNavigating, setIsNavigating] = useState(false);
-  
-  // Animation state for verse transitions
-  const [verseAnimation, setVerseAnimation] = useState<'slide-down' | 'slide-up' | 'none'>('none');
-  const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Fetch books on initial load
   useEffect(() => {
@@ -2066,25 +2062,30 @@ const VersePage: React.FC = () => {
          
          setVerses(data);
          
-         // Only set a verse if we don't have one selected yet, or if URL parsing will handle it
-         if (data.length > 0 && !selectedVerse) {
-           // Let the URL parsing effect handle verse selection to avoid conflicts
-           const path = location.pathname;
-           const pathParts = path.split('/').filter(part => part);
-           if (pathParts.length >= 3) {
-             // URL parsing will handle this
-             return;
-           } else {
-             // No URL verse specified, default to first verse
+         // After fetching verses, check if we need to select a specific verse from URL
+         const path = location.pathname;
+         const pathParts = path.split('/').filter(part => part);
+         if (pathParts.length >= 3) {
+           const [, , verseParam] = pathParts;
+           const targetVerseNumber = parseInt(verseParam) || 1;
+           const targetVerse = data.find(v => v.verse_number === targetVerseNumber);
+           
+           if (targetVerse) {
+             setSelectedVerse(targetVerse);
+           } else if (data.length > 0) {
+             // Fallback to first verse if target verse not found
              setSelectedVerse(data[0]);
            }
+         } else if (data.length > 0 && !selectedVerse) {
+           // No URL verse specified, default to first verse
+           setSelectedVerse(data[0]);
          }
        })
        .catch((err) => {
          console.error("Error fetching verses:", err);
          setVerses([]);
        });
-  }, [currentChapter, selectedBookAbbr]);
+  }, [currentChapter, selectedBookAbbr, location.pathname]);
 
   // Save edited grammar breakdown
   const saveEdit = async () => {
