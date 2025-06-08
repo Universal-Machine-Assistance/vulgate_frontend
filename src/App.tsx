@@ -744,7 +744,7 @@ interface VerseAnalysisState {
   isAnalysisDone: boolean;
   translations: { [key: string]: string };
   theological_layer?: string[];
-  jungian_layer?: string[];
+  symbolic_layer?: string[];
   cosmological_layer?: string[];
   nameOccurrences?: NameOccurrence[];
   hoveredWord?: string | null;
@@ -1834,7 +1834,7 @@ const VersePage: React.FC = () => {
     isAnalysisDone: false,
     translations: {},
     theological_layer: [],
-    jungian_layer: [],
+    symbolic_layer: [],
     cosmological_layer: []
   });
 
@@ -2060,7 +2060,7 @@ const VersePage: React.FC = () => {
             isAnalysisDone: true,
             translations: analysisResult.translations || {},
             theological_layer: analysisResult.theological_layer || [],
-            jungian_layer: analysisResult.jungian_layer || [],
+            symbolic_layer: analysisResult.symbolic_layer || [],
             cosmological_layer: analysisResult.cosmological_layer || [],
             isLoading: false,
             loadingMessage: ''
@@ -2071,8 +2071,8 @@ const VersePage: React.FC = () => {
           if (analysisResult.theological_layer && Array.isArray(analysisResult.theological_layer)) {
             interpretation += '🕊️ Theological Layer (cached):\n' + analysisResult.theological_layer.join('\n') + '\n\n';
           }
-          if (analysisResult.jungian_layer && Array.isArray(analysisResult.jungian_layer)) {
-            interpretation += '🧠 Jungian/Symbolic Layer:\n' + analysisResult.jungian_layer.join('\n') + '\n\n';
+          if (analysisResult.symbolic_layer && Array.isArray(analysisResult.symbolic_layer)) {
+            interpretation += '🧠 Symbolic Layer (Jungian & Campbell):\n' + analysisResult.symbolic_layer.join('\n') + '\n\n';
           }
           if (analysisResult.cosmological_layer && Array.isArray(analysisResult.cosmological_layer)) {
             interpretation += '🌌 Cosmological Layer:\n' + analysisResult.cosmological_layer.join('\n');
@@ -2097,7 +2097,7 @@ const VersePage: React.FC = () => {
       }
       
       // If no cache or cache failed, clear state and load fresh analysis
-      setVerseAnalysisState({
+              setVerseAnalysisState({
         analysis: {},
         grammarBreakdown: [],
         selectedWordIndex: null,
@@ -2105,7 +2105,7 @@ const VersePage: React.FC = () => {
         isAnalysisDone: false,
         translations: {},
         theological_layer: [],
-        jungian_layer: [],
+        symbolic_layer: [],
         cosmological_layer: [],
         isLoading: false,
         loadingMessage: ''
@@ -2776,7 +2776,7 @@ const VersePage: React.FC = () => {
           grammarBreakdown: newGrammarBreakdown,
           isAnalysisDone: true,
           theological_layer: analysisResult.theological_layer || [],
-          jungian_layer: analysisResult.jungian_layer || [],
+          symbolic_layer: analysisResult.symbolic_layer || [],
           cosmological_layer: analysisResult.cosmological_layer || [],
           translations: {
             ...prev.translations,
@@ -2800,8 +2800,8 @@ const VersePage: React.FC = () => {
         if (analysisResult.theological_layer && Array.isArray(analysisResult.theological_layer)) {
           interpretation += '🕊️ Theological Layer (AI Enhanced):\n' + analysisResult.theological_layer.join('\n') + '\n\n';
         }
-        if (analysisResult.jungian_layer && Array.isArray(analysisResult.jungian_layer)) {
-          interpretation += '🧠 Jungian/Symbolic Layer:\n' + analysisResult.jungian_layer.join('\n') + '\n\n';
+        if (analysisResult.symbolic_layer && Array.isArray(analysisResult.symbolic_layer)) {
+          interpretation += '🧠 Symbolic Layer (Jungian & Campbell):\n' + analysisResult.symbolic_layer.join('\n') + '\n\n';
         }
         if (analysisResult.cosmological_layer && Array.isArray(analysisResult.cosmological_layer)) {
           interpretation += '🌌 Cosmological Layer:\n' + analysisResult.cosmological_layer.join('\n');
@@ -3272,7 +3272,7 @@ const VersePage: React.FC = () => {
         grammarBreakdown: data.full_analysis?.word_analysis || [],
         translations: data.full_analysis?.translations || {},
         theological_layer: data.full_analysis?.theological_layer || [],
-        jungian_layer: data.full_analysis?.jungian_layer || [],
+        symbolic_layer: data.full_analysis?.symbolic_layer || [],
         cosmological_layer: data.full_analysis?.cosmological_layer || [],
         isAnalysisDone: true,
         isLoading: false,
@@ -3312,7 +3312,7 @@ const VersePage: React.FC = () => {
   const renderInterpretationLayers = () => {
     if (!analysisResultHasLayers(verseAnalysisState)) return null;
 
-    const { theological_layer = [], jungian_layer = [], cosmological_layer = [] } = verseAnalysisState;
+    const { theological_layer = [], symbolic_layer = [], cosmological_layer = [] } = verseAnalysisState;
 
     const layerCard = (title: string, latin: string, icon: any, points: string[], bg: string, border: string) => (
       <div className={`${bg} ${border} rounded-lg p-4 shadow`}>
@@ -3332,7 +3332,7 @@ const VersePage: React.FC = () => {
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {layerCard('Theological Layer', 'Stratum Theologicum', faChurch, theological_layer, 'bg-yellow-100', 'border-l-8 border-yellow-400')}
-        {layerCard('Symbolic (Jungian) Layer', 'Stratum Symbolicum (Jungianum)', faBrain, jungian_layer, 'bg-purple-100', 'border-l-8 border-purple-400')}
+        {layerCard('Symbolic Layer (Jungian & Campbell)', 'Stratum Symbolicum (Jungianum & Campbell)', faBrain, symbolic_layer, 'bg-purple-100', 'border-l-8 border-purple-400')}
         {layerCard('Cosmological-Historical Layer', 'Stratum Cosmologicum-Historicum', faGlobe, cosmological_layer, 'bg-orange-100', 'border-l-8 border-orange-400')}
       </div>
     );
@@ -3343,11 +3343,20 @@ const VersePage: React.FC = () => {
       {/* Inject custom CSS */}
       <style dangerouslySetInnerHTML={{ __html: customScrollbarStyle }} />
       
-      {/* Header */}
+      {/* Header with centered Vulgate icon and text */}
       <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-3xl font-extrabold">VULGATE</h1>
-          <p className="text-gray-600 italic text-sm">VULGATA CLEMENTINA</p>
+        <div className="flex items-center gap-4">
+          {/* Vulgate Icon - centered with text */}
+          <img 
+            src="/vulgate_icon.png" 
+            alt="Vulgate Icon" 
+            className="w-12 h-12 opacity-90 hover:opacity-100 transition-opacity duration-200"
+            title="Vulgate Clementina"
+          />
+          <div>
+            <h1 className="text-3xl font-extrabold">VULGATE</h1>
+            <p className="text-gray-600 italic text-sm">VULGATA CLEMENTINA</p>
+          </div>
         </div>
       </div>
 
@@ -3811,7 +3820,7 @@ export default App;
 function analysisResultHasLayers(state: VerseAnalysisState) {
   return (
     (state.theological_layer && Array.isArray(state.theological_layer) && state.theological_layer.length > 0) ||
-    (state.jungian_layer && Array.isArray(state.jungian_layer) && state.jungian_layer.length > 0) ||
+    (state.symbolic_layer && Array.isArray(state.symbolic_layer) && state.symbolic_layer.length > 0) ||
     (state.cosmological_layer && Array.isArray(state.cosmological_layer) && state.cosmological_layer.length > 0)
   );
 }
@@ -3822,8 +3831,8 @@ function getInterpretationLayers(state: VerseAnalysisState) {
   if (state.theological_layer && Array.isArray(state.theological_layer) && state.theological_layer.length > 0) {
     layers.push({ layer_type: 'theological', points: state.theological_layer });
   }
-  if (state.jungian_layer && Array.isArray(state.jungian_layer) && state.jungian_layer.length > 0) {
-    layers.push({ layer_type: 'jungian', points: state.jungian_layer });
+  if (state.symbolic_layer && Array.isArray(state.symbolic_layer) && state.symbolic_layer.length > 0) {
+    layers.push({ layer_type: 'symbolic', points: state.symbolic_layer });
   }
   if (state.cosmological_layer && Array.isArray(state.cosmological_layer) && state.cosmological_layer.length > 0) {
     layers.push({ layer_type: 'cosmological', points: state.cosmological_layer });

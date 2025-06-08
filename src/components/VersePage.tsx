@@ -233,7 +233,7 @@ interface VerseAnalysisState {
   isAnalysisDone: boolean;
   translations: Record<string, string>;
   theological_layer: string[];
-  jungian_layer: string[];
+  symbolic_layer: string[];
   cosmological_layer: string[];
   isLoading: boolean;
   loadingMessage: string;
@@ -475,7 +475,7 @@ const VersePage: React.FC = () => {
     isAnalysisDone: false,
     translations: {},
     theological_layer: [],
-    jungian_layer: [],
+    symbolic_layer: [],
     cosmological_layer: [],
     isLoading: false,
     loadingMessage: '',
@@ -681,7 +681,7 @@ const VersePage: React.FC = () => {
           grammarBreakdown: data.full_analysis?.word_analysis || [],
           translations: data.full_analysis?.translations || {},
           theological_layer: data.full_analysis?.theological_layer || [],
-          jungian_layer: data.full_analysis?.jungian_layer || [],
+          symbolic_layer: data.full_analysis?.symbolic_layer || [],
           cosmological_layer: data.full_analysis?.cosmological_layer || [],
           isAnalysisDone: true,
           isLoading: false,
@@ -764,7 +764,7 @@ const VersePage: React.FC = () => {
   };
 
   const renderLayers = () => {
-    const { theological_layer, jungian_layer, cosmological_layer } = verseAnalysisState;
+    const { theological_layer, symbolic_layer, cosmological_layer } = verseAnalysisState;
     
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
@@ -774,7 +774,7 @@ const VersePage: React.FC = () => {
             Theological Layer
           </h3>
           <ul className="space-y-2">
-            {theological_layer.map((item, index) => (
+            {theological_layer.map((item: string, index: number) => (
               <li key={index} className="flex items-start">
                 <FontAwesomeIcon icon={faCheckCircle} className="text-green-500 mt-1 mr-2" />
                 <span>{item}</span>
@@ -786,10 +786,10 @@ const VersePage: React.FC = () => {
         <div className="bg-white rounded-lg shadow-lg p-4">
           <h3 className="text-xl font-bold mb-2 flex items-center">
             <FontAwesomeIcon icon={faBrain} className="mr-2" />
-            Jungian Layer
+            Symbolic Layer (Jungian & Campbell)
           </h3>
           <ul className="space-y-2">
-            {jungian_layer.map((item, index) => (
+            {symbolic_layer.map((item: string, index: number) => (
               <li key={index} className="flex items-start">
                 <FontAwesomeIcon icon={faCheckCircle} className="text-green-500 mt-1 mr-2" />
                 <span>{item}</span>
