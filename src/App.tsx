@@ -743,6 +743,14 @@ const WordInfoComponent: React.FC<{
 
   if (!currentWordInfo) return null;
 
+  // Get grammar color based on part of speech
+  const getGrammarColorClasses = (partOfSpeech: string) => {
+    const posKey = (partOfSpeech?.toLowerCase() || 'default') as GrammarColorKey;
+    return GRAMMAR_COLORS[posKey] || GRAMMAR_COLORS.default;
+  };
+
+  const grammarColorClasses = getGrammarColorClasses(currentWordInfo.partOfSpeech);
+
   // Get source styling based on the source type
   const getSourceBadge = (source?: string, confidence?: number) => {
     switch (source) {
@@ -779,10 +787,10 @@ const WordInfoComponent: React.FC<{
     }
   };
 
-  // Neubrutalist styling
+  // Grammar-based styling with neubrutalist design
   const containerClasses = isPopup 
-    ? "bg-white border-4 border-black rounded-none p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform transition-all duration-300 ease-in-out" 
-    : "bg-white border-4 border-black rounded-none p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-300 ease-in-out transform";
+    ? `${grammarColorClasses} border-4 border-black rounded-none p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform transition-all duration-300 ease-in-out` 
+    : `${grammarColorClasses} border-4 border-black rounded-none p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-300 ease-in-out transform`;
 
   return (
     <div className={`${containerClasses} ${
@@ -2213,12 +2221,24 @@ const VersePage: React.FC = () => {
         if (selectedVerse.verse_number < verses.length) {
           handleVerseChangeWithAnimation(selectedVerse.verse_number + 1, 'slide-down');
         }
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (currentChapter > 1) {
+          setCurrentChapter(currentChapter - 1);
+          updateURL(selectedBookAbbr, currentChapter - 1, 1);
+        }
+      } else if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (currentChapter < chapters.length) {
+          setCurrentChapter(currentChapter + 1);
+          updateURL(selectedBookAbbr, currentChapter + 1, 1);
+        }
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedVerse, verses.length, isTransitioning]);
+  }, [selectedVerse, verses.length, isTransitioning, currentChapter, chapters.length, selectedBookAbbr, updateURL]);
 
   const loadOpenAIAnalysis = async () => {
     if (!selectedVerse) return;
