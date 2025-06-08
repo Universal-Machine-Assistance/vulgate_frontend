@@ -1,0 +1,52 @@
+{
+  "coreLatinDependencies": {
+    "universal-machine-assistance-vulgate": {
+      "repository": "https://github.com/universal-machine-assistance/vulgate",
+      "description": "Core Vulgate text processing and analysis library",
+      "criticality": "high",
+      "updateFrequency": "weekly",
+      "testingRequired": true,
+      "theologically_sensitive": true,
+      "features": [
+        "Latin text processing",
+        "Vulgate-specific formatting",
+        "Word analysis tools",
+        "Theological interpretation helpers"
+      ],
+      "breaking_change_risk": "medium",
+      "last_updated": null,
+      "current_version": "main",
+      "monitoring": {
+        "releases": true,
+        "commits": true,
+        "security_alerts": true
+      }
+    }
+  },
+  "monitoring": {
+    "schedule": "0 9 * * 1",
+    "notification_channels": ["github_issues"],
+    "auto_update": false,
+    "require_approval": true
+  },
+  "testing": {
+    "pre_update_checks": [
+      "Latin text accuracy",
+      "Theological interpretation integrity",
+      "Audio functionality",
+      "Word analysis correctness",
+      "Grammar highlighting"
+    ],
+    "post_update_validation": [
+      "No regression in core features",
+      "Performance benchmarks maintained",
+      "All tests pass",
+      "UI components render correctly"
+    ]
+  },
+  "documentation": {
+    "auto_update_readme": true,
+    "track_changes": true,
+    "require_changelog": true
+  }
+} 

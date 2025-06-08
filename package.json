@@ -21,11 +21,16 @@
     "typescript": "^4.9.5",
     "web-vitals": "^2.1.4"
   },
+  "coreLatinDependencies": {
+    "universal-machine-assistance-vulgate": "git+https://github.com/universal-machine-assistance/vulgate.git"
+  },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "check-latin-updates": "npm outdated $(cat package.json | jq -r '.coreLatinDependencies | keys[]')",
+    "update-latin-deps": "npm install $(cat package.json | jq -r '.coreLatinDependencies | to_entries[] | \"\\(.key)@\\(.value)\"' | tr '\\n' ' ')"
   },
   "eslintConfig": {
     "extends": [

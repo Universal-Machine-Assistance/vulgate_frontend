@@ -1266,6 +1266,11 @@ const customScrollbarStyle = `
     80% { content: '🇮🇹'; }
     100% { content: '🌐'; }
   }
+  
+  /* Custom scale classes for better control */
+  .hover\\:scale-130:hover {
+    transform: scale(1.3);
+  }
 `;
 
 // Add this new component after WordInfoComponent and before App component
@@ -2334,11 +2339,13 @@ const VersePage: React.FC = () => {
   
   // Floating translation icon state
   const [showFloatingTranslation, setShowFloatingTranslation] = useState(false);
+  const [brainButtonHovered, setBrainButtonHovered] = useState(false);
+  const [hoverTimeoutId, setHoverTimeoutId] = useState<NodeJS.Timeout | null>(null);
   
-  // Hide floating translation icon when clicking outside
+  // Hide floating translation icon when clicking outside (only for explicit show, not hover)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (showFloatingTranslation) {
+      if (showFloatingTranslation && !brainButtonHovered) {
         const target = event.target as HTMLElement;
         if (!target.closest('.floating-translation-container')) {
           setShowFloatingTranslation(false);
@@ -2353,7 +2360,16 @@ const VersePage: React.FC = () => {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showFloatingTranslation]);
+  }, [showFloatingTranslation, brainButtonHovered]);
+
+  // Cleanup hover timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutId) {
+        clearTimeout(hoverTimeoutId);
+      }
+    };
+  }, [hoverTimeoutId]);
 
   // Enhanced navigation functions for cross-chapter support with proper synchronization
   const navigateToPreviousVerse = async () => {
@@ -2435,10 +2451,10 @@ const VersePage: React.FC = () => {
     }
   };
 
-  // Keyboard navigation
+  // Enhanced keyboard navigation with audio controls
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Only handle arrow keys if no input/textarea is focused and not during transitions
+      // Only handle keys if no input/textarea is focused and not during transitions
       const activeElement = document.activeElement;
       const isInputFocused = activeElement?.tagName === 'INPUT' || 
                              activeElement?.tagName === 'TEXTAREA' || 
@@ -2446,7 +2462,34 @@ const VersePage: React.FC = () => {
       
       if (isInputFocused || isTransitioning || !selectedVerse) return;
       
-      if (event.key === 'ArrowLeft') {
+      console.log('Key pressed:', event.key); // Debug log
+      
+      // Audio controls
+      if (event.key.toLowerCase() === 'r') {
+        event.preventDefault();
+        console.log('R key - triggering record'); // Debug log
+        handleRecordClick();
+      } else if (event.key.toLowerCase() === 'p') {
+        event.preventDefault();
+        console.log('P key - triggering play'); // Debug log
+        if (audioAvailable) {
+          if (isPlaying) {
+            if (audioSource) audioSource.stop();
+            setIsPlaying(false);
+            setAudioSource(null);
+            setCurrentlyPlayingWordIndex(null);
+          } else {
+            playAudioWithWordHighlighting();
+          }
+        }
+      } else if (event.key.toLowerCase() === 'g') {
+        event.preventDefault();
+        console.log('G key - triggering analysis'); // Debug log
+        const fakeEvent = { altKey: false, preventDefault: () => {} } as React.MouseEvent;
+        handleEnhanceClick(fakeEvent);
+      }
+      // Navigation controls
+      else if (event.key === 'ArrowLeft') {
         event.preventDefault();
         navigateToPreviousVerse();
       } else if (event.key === 'ArrowRight') {
@@ -2469,7 +2512,7 @@ const VersePage: React.FC = () => {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedVerse, verses.length, isTransitioning, currentChapter, chapters.length, selectedBookAbbr, updateURL, navigationInProgress]);
+  }, [selectedVerse, verses.length, isTransitioning, currentChapter, chapters.length, selectedBookAbbr, updateURL, navigationInProgress, audioAvailable, isPlaying, audioSource]);
 
   // Ensure all supported translations are available
   const ensureAllTranslationsAvailable = async () => {
@@ -2495,14 +2538,27 @@ const VersePage: React.FC = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             verse: selectedVerse.text, 
-            language: language
+            language: language,
+            include_both_types: true
           })
         });
 
         if (response.ok) {
           const result = await response.json();
           if (result.success) {
-            return { language, translation: result.translation };
+            // Format the translation with both types if available
+            let formattedTranslation = '';
+            if (result.literal && result.dynamic) {
+              formattedTranslation = `Literal: ${result.literal}\n\nDynamic: ${result.dynamic}`;
+            } else if (result.literal) {
+              formattedTranslation = `Literal: ${result.literal}`;
+            } else if (result.dynamic) {
+              formattedTranslation = `Dynamic: ${result.dynamic}`;
+            } else {
+              // Fallback to single translation
+              formattedTranslation = result.translation || '';
+            }
+            return { language, translation: formattedTranslation };
           }
         }
         console.warn(`Failed to fetch translation for ${language}`);
@@ -2699,7 +2755,8 @@ const VersePage: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           verse: selectedVerse.text, 
-          language: language
+          language: language,
+          include_both_types: true // Request both literal and dynamic translations
         })
       });
 
@@ -2715,10 +2772,23 @@ const VersePage: React.FC = () => {
       const translationResult = await response.json();
 
       if (translationResult.success) {
+        // Format the translation with both types if available
+        let formattedTranslation = '';
+        if (translationResult.literal && translationResult.dynamic) {
+          formattedTranslation = `Literal: ${translationResult.literal}\n\nDynamic: ${translationResult.dynamic}`;
+        } else if (translationResult.literal) {
+          formattedTranslation = `Literal: ${translationResult.literal}`;
+        } else if (translationResult.dynamic) {
+          formattedTranslation = `Dynamic: ${translationResult.dynamic}`;
+        } else {
+          // Fallback to single translation
+          formattedTranslation = translationResult.translation || '';
+        }
+        
         // Update available translations
         setAvailableTranslations(prev => ({
           ...prev,
-          [language]: translationResult.translation
+          [language]: formattedTranslation
         }));
         
         // Update verse analysis state
@@ -2726,7 +2796,7 @@ const VersePage: React.FC = () => {
           ...prev,
           translations: {
             ...prev.translations,
-            [language]: translationResult.translation
+            [language]: formattedTranslation
           }
         }));
         
@@ -2740,7 +2810,7 @@ const VersePage: React.FC = () => {
             if (!cachedData.translations) {
               cachedData.translations = {};
             }
-            cachedData.translations[language] = translationResult.translation;
+            cachedData.translations[language] = formattedTranslation;
             localStorage.setItem(cacheKey, JSON.stringify(cachedData));
             console.log(`Cached individual translation for ${language} in ${verseRef}`);
           }
@@ -2757,18 +2827,11 @@ const VersePage: React.FC = () => {
     }
   };
   
-  // Enhanced Greb AI click handler with Alt+Click detection
+  // Enhanced Greb AI click handler
   const handleEnhanceClick = async (event: React.MouseEvent) => {
     if (!selectedVerse || isOpenAIAnalyzing) return;
     
-    // Check for Alt+Click to show floating translation icon
-    if (event.altKey) {
-      event.preventDefault();
-      setShowFloatingTranslation(!showFloatingTranslation);
-      return;
-    }
-    
-    // Regular click - run Greb AI enhancement
+    // Run Greb AI enhancement
     await loadOpenAIAnalysis();
   };
   
@@ -2791,14 +2854,27 @@ const VersePage: React.FC = () => {
             body: JSON.stringify({ 
               verse: selectedVerse.text, 
               language: language,
-              force: true // Force regeneration
+              force: true, // Force regeneration
+              include_both_types: true
             })
           });
 
           if (response.ok) {
             const result = await response.json();
             if (result.success) {
-              return { language, translation: result.translation };
+              // Format the translation with both types if available
+              let formattedTranslation = '';
+              if (result.literal && result.dynamic) {
+                formattedTranslation = `Literal: ${result.literal}\n\nDynamic: ${result.dynamic}`;
+              } else if (result.literal) {
+                formattedTranslation = `Literal: ${result.literal}`;
+              } else if (result.dynamic) {
+                formattedTranslation = `Dynamic: ${result.dynamic}`;
+              } else {
+                // Fallback to single translation
+                formattedTranslation = result.translation || '';
+              }
+              return { language, translation: formattedTranslation };
             }
           }
           console.warn(`Failed to force generate translation for ${language}`);
@@ -2990,6 +3066,60 @@ const VersePage: React.FC = () => {
       console.error('Error playing audio:', error);
       setIsPlaying(false);
       setAudioSource(null);
+    }
+  };
+
+  // Enhanced audio playback with word-by-word highlighting
+  const playAudioWithWordHighlighting = async () => {
+    if (!selectedVerse || !audioContext) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/audio/${selectedBookAbbr}/${currentChapter}/${selectedVerse.verse_number}`);
+      if (!response.ok) throw new Error('Audio not available');
+      
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      
+      if (audioSource) {
+        audioSource.stop();
+        audioSource.disconnect();
+      }
+      
+      const source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioContext.destination);
+      
+      setAudioSource(source);
+      source.start(0);
+      setIsPlaying(true);
+      
+      // Word highlighting logic
+      const words = selectedVerse.text.split(' ');
+      const totalDuration = audioBuffer.duration;
+      const wordDuration = totalDuration / words.length;
+      
+      // Start word highlighting sequence
+      words.forEach((_, index) => {
+        setTimeout(() => {
+          setCurrentlyPlayingWordIndex(index);
+        }, index * wordDuration * 1000);
+      });
+      
+      // Clear highlighting when audio ends
+      setTimeout(() => {
+        setCurrentlyPlayingWordIndex(null);
+      }, totalDuration * 1000);
+      
+      source.onended = () => {
+        setIsPlaying(false);
+        setAudioSource(null);
+        setCurrentlyPlayingWordIndex(null);
+      };
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      setIsPlaying(false);
+      setAudioSource(null);
+      setCurrentlyPlayingWordIndex(null);
     }
   };
 
@@ -3226,12 +3356,13 @@ const VersePage: React.FC = () => {
                       style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
                     }
                     if (isCurrentlyPlaying) {
-                      style.backgroundColor = '#fbbf24'; // amber-400
-                      style.color = '#000000';
+                      // Keep the grammar-based background color but add playing effects
                       style.transform = 'scale(1.1)';
-                      style.boxShadow = '0 0 0 4px rgba(251, 191, 36, 0.6), 0 8px 16px rgba(0, 0, 0, 0.2)';
+                      style.boxShadow = '0 0 0 4px rgba(251, 191, 36, 0.8), 0 8px 16px rgba(0, 0, 0, 0.2)'; 
                       style.fontWeight = '900';
                       style.animation = 'pulse 0.5s ease-in-out';
+                      // Add a subtle golden border to indicate it's currently playing
+                      style.border = '2px solid #fbbf24';
                     }
                   } else {
                     // Default black text - no highlighting until analysis completes
@@ -3269,48 +3400,15 @@ const VersePage: React.FC = () => {
               </div>
             )}
             
-            {/* Enhanced Translation Display with Clear Visual Distinction */}
+            {/* Simplified Translation Display */}
             {!isVerseLoading && verseAnalysisState.translations && Object.keys(verseAnalysisState.translations).length > 0 && (
-              <div className="mt-4 border-t-2 border-gray-200 pt-4">
+              <div className="mt-4 border-t border-gray-200 pt-3">
                 {(() => {
                   const currentTranslation = verseAnalysisState.translations[selectedTranslationLang];
-                  const translationType = getTranslationTypeIcon(selectedTranslationLang, currentTranslation);
-                  const languageName = LANGUAGES.find(lang => lang.code === selectedTranslationLang)?.name || selectedTranslationLang.toUpperCase();
-                  const languageFlag = LANGUAGES.find(lang => lang.code === selectedTranslationLang)?.flag || '🌐';
                   
                   return (
-                    <div className={`${translationType.bgColor} ${translationType.borderColor} border-4 rounded-lg p-6 shadow-lg`}>
-                      {/* Clear Translation Type Header */}
-                      <div className="flex items-center justify-center gap-4 mb-4">
-                        <div className={`${translationType.bgColor} ${translationType.borderColor} border-2 rounded-full p-3 shadow-md`}>
-                          <FontAwesomeIcon 
-                            icon={translationType.icon} 
-                            className={`text-2xl ${translationType.color}`}
-                          />
-                        </div>
-                        <div className="text-center">
-                          <div className="flex items-center gap-2 justify-center mb-1">
-                            <span className="text-2xl">{languageFlag}</span>
-                            <span className="text-xl font-black text-gray-800">{languageName}</span>
-                            <span className="text-2xl">{translationType.emoji}</span>
-                          </div>
-                          <div className={`${translationType.color} font-black text-lg uppercase tracking-wide flex items-center gap-2 justify-center`}>
-                            {translationType.type} Translation
-                          </div>
-                          <div className="text-sm text-gray-600 italic">
-                            {translationType.description}
-                          </div>
-                        </div>
-                        <div className={`${translationType.bgColor} ${translationType.borderColor} border-2 rounded-full p-3 shadow-md`}>
-                          <FontAwesomeIcon 
-                            icon={faGem} 
-                            className="text-2xl text-yellow-600"
-                          />
-                        </div>
-                      </div>
-                      
-                      {/* Translation Text */}
-                      <div className="text-gray-800 leading-relaxed text-center text-lg font-medium">
+                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <div className="text-gray-800 leading-relaxed text-sm">
                         {renderMarkdown(currentTranslation)}
                       </div>
                     </div>
@@ -3324,15 +3422,16 @@ const VersePage: React.FC = () => {
           <div className="flex gap-4 justify-center mt-4 flex-wrap">
             {audioAvailable && (
               <button
-                className={`p-3 rounded-full ${isPlaying ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600'} text-white shadow transition-colors duration-200`}
-                title={isPlaying ? 'Pause audio' : 'Play audio'}
+                className={`p-3 rounded-full ${isPlaying ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600'} text-white shadow transition-all duration-200`}
+                title={isPlaying ? 'Pause audio (P key)' : 'Play audio with word highlighting (P key)'}
                 onClick={() => {
                   if (isPlaying) {
                     if (audioSource) audioSource.stop();
                     setIsPlaying(false);
                     setAudioSource(null);
+                    setCurrentlyPlayingWordIndex(null);
                   } else {
-                    playAudio(0, false);
+                    playAudioWithWordHighlighting();
                   }
                 }}
                 disabled={!selectedVerse}
@@ -3341,8 +3440,8 @@ const VersePage: React.FC = () => {
               </button>
             )}
             <button
-              className={`p-3 rounded-full ${isRecording ? 'bg-red-500 hover:bg-red-600 animate-pulse' : 'bg-pink-500 hover:bg-pink-600'} text-white shadow transition-colors duration-200`}
-              title={isRecording ? 'Stop recording' : 'Start recording'}
+              className={`p-3 rounded-full ${isRecording ? 'bg-red-500 hover:bg-red-600 animate-pulse' : 'bg-pink-500 hover:bg-pink-600'} text-white shadow transition-all duration-200 hover:scale-130`}
+              title={isRecording ? 'Stop recording (R key)' : 'Start recording (R key)'}
               onClick={handleRecordClick}
               disabled={!selectedVerse}
             >
@@ -3364,9 +3463,22 @@ const VersePage: React.FC = () => {
               <button
                 className={`p-3 rounded-full border-2 border-black ${
                   isOpenAIAnalyzing ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700'
-                } text-white shadow transition-colors duration-200`}
-                title="Click: Enhance analysis with Greb AI | Alt+Click: Show translation generator"
+                } text-white shadow transition-all duration-200 hover:scale-130`}
+                title="Enhance analysis with Greb AI (G key) | Hover to show translation generator"
                 onClick={handleEnhanceClick}
+                onMouseEnter={() => {
+                  if (hoverTimeoutId) {
+                    clearTimeout(hoverTimeoutId);
+                    setHoverTimeoutId(null);
+                  }
+                  setBrainButtonHovered(true);
+                }}
+                onMouseLeave={() => {
+                  const timeoutId = setTimeout(() => {
+                    setBrainButtonHovered(false);
+                  }, 1500); // 1.5 second delay
+                  setHoverTimeoutId(timeoutId);
+                }}
                 disabled={!selectedVerse || isOpenAIAnalyzing}
               >
                 {isOpenAIAnalyzing ? (
@@ -3376,19 +3488,34 @@ const VersePage: React.FC = () => {
                 )}
               </button>
               
-              {/* Floating Translation Icon */}
-              {showFloatingTranslation && (
-                <div className="absolute -top-6 -right-1 z-50">
+              {/* Floating Translation Icon - shows on hover */}
+              {(showFloatingTranslation || brainButtonHovered) && (
+                <div 
+                  className="absolute -top-9 -right-2 z-50"
+                  onMouseEnter={() => {
+                    if (hoverTimeoutId) {
+                      clearTimeout(hoverTimeoutId);
+                      setHoverTimeoutId(null);
+                    }
+                    setBrainButtonHovered(true);
+                  }}
+                  onMouseLeave={() => {
+                    const timeoutId = setTimeout(() => {
+                      setBrainButtonHovered(false);
+                    }, 1500); // 1.5 second delay
+                    setHoverTimeoutId(timeoutId);
+                  }}
+                >
                   <button
                     onClick={handleForceTranslations}
                     disabled={isGeneratingTranslations}
-                    className={`w-10 h-10 rounded-full border-2 border-black shadow-lg transform transition-all duration-300 ease-out ${
+                    className={`w-8 h-8 rounded-full border-2 border-black shadow-lg transform transition-all duration-300 ease-out ${
                       isGeneratingTranslations 
                         ? 'bg-gradient-to-r from-yellow-400 to-orange-400 cursor-not-allowed' 
                         : 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 hover:scale-110 animate-bounce'
                     } text-white flex items-center justify-center relative overflow-hidden`}
                     style={{
-                      animation: showFloatingTranslation 
+                      animation: (showFloatingTranslation || brainButtonHovered)
                         ? 'floatingTranslationPop 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)' 
                         : undefined
                     }}
@@ -3396,11 +3523,11 @@ const VersePage: React.FC = () => {
                   >
                     {isGeneratingTranslations ? (
                       <div className="relative">
-                        <FontAwesomeIcon icon={faSpinner} spin className="text-sm" />
+                        <FontAwesomeIcon icon={faSpinner} spin className="text-xs" />
                         <LanguageCycleIndicator />
                       </div>
                     ) : (
-                      <FontAwesomeIcon icon={faLanguage} className="text-sm" />
+                      <FontAwesomeIcon icon={faLanguage} className="text-xs" />
                     )}
                   </button>
                 </div>
@@ -3478,6 +3605,46 @@ const VersePage: React.FC = () => {
                     <FontAwesomeIcon icon={faBook} className="mr-2" />
                     Grammar Breakdown
                   </h4>
+                  
+                  {/* Grammar Legend */}
+                  <div className="mb-3 p-3 bg-white border border-gray-200 rounded">
+                    <h5 className="text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Legenda Grammatica (Grammar Legend)</h5>
+                    <div className="grid grid-cols-2 gap-1 text-xs">
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded bg-blue-100 border border-blue-300"></div>
+                        <span className="text-blue-800 font-medium">Verbum</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded bg-green-100 border border-green-300"></div>
+                        <span className="text-green-800 font-medium">Nomen</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded bg-purple-100 border border-purple-300"></div>
+                        <span className="text-purple-800 font-medium">Adiectivum</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded bg-orange-100 border border-orange-300"></div>
+                        <span className="text-orange-800 font-medium">Adverbium</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded bg-red-100 border border-red-300"></div>
+                        <span className="text-red-800 font-medium">Pronomen</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded bg-gray-100 border border-gray-300"></div>
+                        <span className="text-gray-800 font-medium">Praepositio</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded bg-pink-100 border border-pink-300"></div>
+                        <span className="text-pink-800 font-medium">Coniunctio</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded bg-indigo-100 border border-indigo-300"></div>
+                        <span className="text-indigo-800 font-medium">Participium</span>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     {verseAnalysisState.grammarBreakdown.map((item, index) => {
                       const posKey = (item.part_of_speech?.toLowerCase() || 'default') as GrammarColorKey;

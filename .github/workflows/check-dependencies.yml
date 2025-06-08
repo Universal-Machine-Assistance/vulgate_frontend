@@ -1,0 +1,162 @@
+name: Check Core Latin Dependencies
+
+on:
+  schedule:
+    # Run every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch: # Allow manual triggering
+  push:
+    paths:
+      - 'package.json'
+      - 'docs/DEPENDENCY_MANAGEMENT.md'
+
+jobs:
+  check-dependencies:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install jq for JSON parsing
+      run: sudo apt-get update && sudo apt-get install -y jq curl
+      
+    - name: Extract core dependencies
+      id: extract-deps
+      run: |
+        # Extract core Latin dependencies from package.json
+        if [ -f package.json ] && jq -e '.coreLatinDependencies' package.json > /dev/null; then
+          echo "Core dependencies found"
+          DEPS=$(jq -r '.coreLatinDependencies | to_entries[] | "\(.key) \(.value)"' package.json)
+          echo "deps<<EOF" >> $GITHUB_OUTPUT
+          echo "$DEPS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        else
+          echo "No core dependencies found"
+          echo "deps=" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Check for repository updates
+      id: check-updates
+      if: steps.extract-deps.outputs.deps != ''
+      run: |
+        UPDATES_FOUND=false
+        UPDATE_REPORT=""
+        
+        while IFS= read -r line; do
+          if [ -n "$line" ]; then
+            REPO_NAME=$(echo "$line" | cut -d' ' -f1)
+            REPO_URL=$(echo "$line" | cut -d' ' -f2)
+            
+            # Extract GitHub repo from URL
+            if [[ $REPO_URL == *"github.com"* ]]; then
+              GITHUB_REPO=$(echo "$REPO_URL" | sed -n 's/.*github\.com\/\([^/]*\/[^/.]*\).*/\1/p')
+              
+              echo "Checking $GITHUB_REPO..."
+              
+              # Get latest release info
+              LATEST_RELEASE=$(curl -s "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | jq -r '.tag_name // "no-releases"')
+              RELEASE_DATE=$(curl -s "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | jq -r '.published_at // "unknown"')
+              
+              # Get latest commit info
+              LATEST_COMMIT=$(curl -s "https://api.github.com/repos/$GITHUB_REPO/commits" | jq -r '.[0].sha[0:7] // "unknown"')
+              COMMIT_DATE=$(curl -s "https://api.github.com/repos/$GITHUB_REPO/commits" | jq -r '.[0].commit.committer.date // "unknown"')
+              
+              UPDATE_REPORT="$UPDATE_REPORT\n## $REPO_NAME\n"
+              UPDATE_REPORT="$UPDATE_REPORT- **Repository**: https://github.com/$GITHUB_REPO\n"
+              UPDATE_REPORT="$UPDATE_REPORT- **Latest Release**: $LATEST_RELEASE ($RELEASE_DATE)\n"
+              UPDATE_REPORT="$UPDATE_REPORT- **Latest Commit**: $LATEST_COMMIT ($COMMIT_DATE)\n"
+              UPDATE_REPORT="$UPDATE_REPORT- **Status**: 🔍 Check manually for integration needs\n\n"
+              
+              UPDATES_FOUND=true
+            fi
+          fi
+        done <<< "${{ steps.extract-deps.outputs.deps }}"
+        
+        echo "updates_found=$UPDATES_FOUND" >> $GITHUB_OUTPUT
+        echo "report<<EOF" >> $GITHUB_OUTPUT
+        echo -e "$UPDATE_REPORT" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+    - name: Create Issue for Updates
+      if: steps.check-updates.outputs.updates_found == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const title = `🔍 Core Latin Dependencies Status Report - ${new Date().toISOString().split('T')[0]}`;
+          const body = `
+          # Core Latin Dependencies Status Report
+          
+          This is an automated report checking the status of our core Latin/Vulgate dependencies.
+          
+          ${{ steps.check-updates.outputs.report }}
+          
+          ## Action Required
+          
+          Please review each dependency and:
+          
+          1. **Check for breaking changes** in release notes
+          2. **Test compatibility** with current codebase  
+          3. **Verify Latin text accuracy** after any updates
+          4. **Update documentation** if integration changes are needed
+          5. **Update the dependency tracking table** in \`docs/DEPENDENCY_MANAGEMENT.md\`
+          
+          ## Related Files
+          - [ ] \`package.json\` - Update versions if needed
+          - [ ] \`docs/DEPENDENCY_MANAGEMENT.md\` - Update status table
+          - [ ] Test integration after updates
+          
+          ## Checklist
+          - [ ] Reviewed all dependency changes
+          - [ ] Tested in development environment
+          - [ ] Updated documentation
+          - [ ] Dependencies are working correctly
+          
+          ---
+          
+          *This issue was created automatically by the dependency check workflow.*
+          `;
+          
+          // Check if similar issue already exists
+          const issues = await github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            labels: ['dependencies', 'automated'],
+            state: 'open'
+          });
+          
+          const existingIssue = issues.data.find(issue => 
+            issue.title.includes('Core Latin Dependencies Status Report')
+          );
+          
+          if (existingIssue) {
+            // Update existing issue
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: existingIssue.number,
+              body: `## 📅 Updated Report - ${new Date().toISOString().split('T')[0]}\n\n${body}`
+            });
+          } else {
+            // Create new issue
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['dependencies', 'automated', 'maintenance']
+            });
+          }
+          
+    - name: Update dependency status
+      if: steps.check-updates.outputs.updates_found == 'true'
+      run: |
+        echo "✅ Dependency check completed"
+        echo "📊 Report generated and issue created/updated"
+        echo "🔄 Next check scheduled for next Monday" 

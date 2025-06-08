@@ -14,7 +14,7 @@ A modern, interactive Latin Bible reader built with React and TypeScript, featur
 - **Multiple Translations**: Support for translations in various languages
 - **Theological Layers**: AI-generated theological, symbolic, and cosmological interpretations
 - **Audio Recording**: Record and upload verse pronunciations
-- **Audio Playback**: Play recorded audio for verses
+- **Audio Playbook**: Play recorded audio for verses
 - **Verse Relationships**: Find other occurrences of words across the Bible
 - **Book Navigation**: Easy navigation between books, chapters, and verses
 - **Caching System**: Local storage caching for improved performance
@@ -32,6 +32,42 @@ A modern, interactive Latin Bible reader built with React and TypeScript, featur
 - **Animation States**: Smooth transitions prevent flickering during navigation
 - **Responsive Design**: Works across different screen sizes
 - **Loading States**: Clear feedback during analysis and data loading
+
+## 📦 Dependency Management
+
+This project uses a specialized dependency management system for core Latin/Vulgate-related libraries. These dependencies are critical for theological accuracy and Latin text processing.
+
+### Core Latin Dependencies
+
+We track these separately from standard npm packages because they:
+- Require careful validation for theological accuracy
+- May not follow standard semver versioning
+- Need manual testing for Latin text correctness
+- Are critical to core functionality
+
+#### Current Core Dependencies
+- `universal-machine-assistance-vulgate`: Specialized Vulgate text processing and analysis
+
+### Managing Dependencies
+
+```bash
+# Check for updates to core Latin dependencies
+npm run check-latin-updates
+
+# Update all core Latin dependencies
+npm run update-latin-deps
+
+# Install a specific version
+npm install git+https://github.com/universal-machine-assistance/vulgate.git#v1.2.0
+```
+
+### Automated Monitoring
+
+- **GitHub Actions**: Weekly automated checks for dependency updates
+- **Issue Creation**: Automatic GitHub issues created when updates are available
+- **Release Tracking**: Monitoring of releases and commits for each core dependency
+
+📖 **[Full Dependency Management Documentation](docs/DEPENDENCY_MANAGEMENT.md)**
 
 ## ❌ Missing Features / TODO
 
@@ -80,6 +116,9 @@ npm start
 
 # Build for production
 npm run build
+
+# Check dependency health
+npm run check-latin-updates
 ```
 
 ## 🛠 Tech Stack
@@ -90,10 +129,48 @@ npm run build
 - **State Management**: React Hooks
 - **Build Tool**: Create React App
 - **Styling**: Tailwind CSS with custom animations
+- **Dependency Management**: Custom tracking for Latin/theological libraries
+
+## 📁 Project Structure
+
+```
+vulgate_frontend/
+├── src/
+│   ├── App.tsx              # Main application component
+│   ├── components/          # React components (if separated)
+│   └── assets/             # Audio files and static assets
+├── docs/
+│   └── DEPENDENCY_MANAGEMENT.md  # Dependency management documentation
+├── .github/
+│   └── workflows/
+│       └── check-dependencies.yml  # Automated dependency checking
+├── package.json            # Dependencies and core Latin dependencies
+└── README.md
+```
+
+## 🔧 Development Workflow
+
+### Working with Dependencies
+1. **Before Updates**: Always check `docs/DEPENDENCY_MANAGEMENT.md`
+2. **Testing**: Verify Latin text accuracy after dependency updates
+3. **Documentation**: Update tracking table when dependencies change
+4. **Monitoring**: GitHub Actions will alert you to new updates weekly
+
+### Key Commands
+- `npm start` - Development server
+- `npm run check-latin-updates` - Check for core dependency updates
+- `npm run update-latin-deps` - Update all core Latin dependencies
 
 ## 📝 Notes
 
 This is a frontend-only application that requires a compatible backend API for full functionality. The app assumes the API is running on `http://127.0.0.1:8000/api/v1`.
+
+### Critical Dependencies
+Our core Latin dependencies are essential for:
+- Accurate Latin text processing
+- Theological interpretation accuracy  
+- Proper Vulgate formatting and display
+- Integration with specialized Latin dictionaries
 
 ---
 
