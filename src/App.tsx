@@ -1074,12 +1074,63 @@ const VerseDropdown: React.FC<{
   );
 };
 
-// Custom scrollbar hide utility
+// Custom scrollbar hide utility and verse animations
 const customScrollbarStyle = `
   .custom-scrollbar::-webkit-scrollbar { display: none; }
   .custom-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   .hide-scrollbar::-webkit-scrollbar { display: none; }
   .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  
+  /* Verse transition animations */
+  .verse-container {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .verse-content {
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+    transform: translateX(0);
+    opacity: 1;
+  }
+  
+  .verse-content.slide-down {
+    animation: slideOutUp 0.25s ease-in forwards, slideInDown 0.25s 0.25s ease-out forwards;
+  }
+  
+  .verse-content.slide-up {
+    animation: slideOutDown 0.25s ease-in forwards, slideInUp 0.25s 0.25s ease-out forwards;
+  }
+  
+  @keyframes slideOutUp {
+    from { transform: translateY(0); opacity: 1; }
+    to { transform: translateY(-100%); opacity: 0; }
+  }
+  
+  @keyframes slideInDown {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  
+  @keyframes slideOutDown {
+    from { transform: translateY(0); opacity: 1; }
+    to { transform: translateY(100%); opacity: 0; }
+  }
+  
+  @keyframes slideInUp {
+    from { transform: translateY(-100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  
+  /* Smooth highlight animations for completed analysis */
+  .analysis-complete {
+    animation: analysisGlow 0.8s ease-in-out;
+  }
+  
+  @keyframes analysisGlow {
+    0% { box-shadow: none; }
+    50% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+    100% { box-shadow: none; }
+  }
 `;
 
 // Add this new component after WordInfoComponent and before App component
@@ -1767,7 +1818,7 @@ const VersePage: React.FC = () => {
 
   // Handle verse changes
   useEffect(() => {
-    if (selectedVerse) {
+    if (selectedVerse && !isNavigating) {
       // First check if we have cached data before clearing state
       const verseRef = `${selectedBookAbbr} ${currentChapter}:${selectedVerse.verse_number}`;
       const cacheKey = `verse_analysis_${verseRef}`;
@@ -1904,7 +1955,7 @@ const VersePage: React.FC = () => {
     }
   }, [selectedVerse, selectedBookAbbr, currentChapter]);
 
-  // Parse URL and set initial state
+  // Consolidated URL handling - parse URL and set initial state
   useEffect(() => {
     const path = location.pathname;
     const pathParts = path.split('/').filter(part => part);
@@ -1912,25 +1963,49 @@ const VersePage: React.FC = () => {
     if (pathParts.length >= 3) {
       // URL format: /book/chapter/verse
       const [bookParam, chapterParam, verseParam] = pathParts;
-      setSelectedBookAbbr(bookParam);
-      setCurrentChapter(parseInt(chapterParam) || 1);
-      // Verse will be set when verses are loaded
+      const newBook = bookParam;
+      const newChapter = parseInt(chapterParam) || 1;
+      const newVerseNumber = parseInt(verseParam) || 1;
+      
+      // Only update if different to prevent unnecessary re-renders
+      if (selectedBookAbbr !== newBook) {
+        setSelectedBookAbbr(newBook);
+      }
+      if (currentChapter !== newChapter) {
+        setCurrentChapter(newChapter);
+      }
+      
+              // Store the target verse number for when verses are loaded
+        if (verses.length > 0) {
+          const targetVerse = verses.find(v => v.verse_number === newVerseNumber);
+          if (targetVerse && (!selectedVerse || selectedVerse.verse_number !== newVerseNumber)) {
+            setIsNavigating(true);
+            setSelectedVerse(targetVerse);
+            // Reset navigation flag after state update
+            setTimeout(() => setIsNavigating(false), 100);
+          }
+        }
     } else if (pathParts.length === 0) {
       // Root path - default to Genesis 1:1
       navigate('/Gn/1/1', { replace: true });
       return;
     }
-  }, [location.pathname, navigate]);
+  }, [location.pathname, navigate, selectedBookAbbr, currentChapter, verses, selectedVerse]);
 
-  // Update URL when navigation changes
-  useEffect(() => {
-    if (selectedVerse && selectedBookAbbr && currentChapter) {
-      const newPath = `/${selectedBookAbbr}/${currentChapter}/${selectedVerse.verse_number}`;
-      if (location.pathname !== newPath) {
-        navigate(newPath, { replace: true });
-      }
+  // Update URL when navigation changes (only when user manually changes selection)
+  const updateURL = useCallback((book: string, chapter: number, verse: number) => {
+    const newPath = `/${book}/${chapter}/${verse}`;
+    if (location.pathname !== newPath) {
+      navigate(newPath, { replace: true });
     }
-  }, [selectedBookAbbr, currentChapter, selectedVerse, navigate, location.pathname]);
+  }, [navigate, location.pathname]);
+
+  // Debounced state update to prevent rapid changes
+  const [isNavigating, setIsNavigating] = useState(false);
+  
+  // Animation state for verse transitions
+  const [verseAnimation, setVerseAnimation] = useState<'slide-down' | 'slide-up' | 'none'>('none');
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Fetch books on initial load
   useEffect(() => {
@@ -1991,26 +2066,25 @@ const VersePage: React.FC = () => {
          
          setVerses(data);
          
-         // If we have a verse from URL, select it
-         const path = location.pathname;
-         const pathParts = path.split('/').filter(part => part);
-         if (pathParts.length >= 3) {
-           const verseParam = parseInt(pathParts[2]) || 1;
-           const targetVerse = data.find((v: Verse) => v.verse_number === verseParam);
-           if (targetVerse) {
-             setSelectedVerse(targetVerse);
-           } else if (data.length > 0) {
-             setSelectedVerse(data[0]); // Fallback to first verse
+         // Only set a verse if we don't have one selected yet, or if URL parsing will handle it
+         if (data.length > 0 && !selectedVerse) {
+           // Let the URL parsing effect handle verse selection to avoid conflicts
+           const path = location.pathname;
+           const pathParts = path.split('/').filter(part => part);
+           if (pathParts.length >= 3) {
+             // URL parsing will handle this
+             return;
+           } else {
+             // No URL verse specified, default to first verse
+             setSelectedVerse(data[0]);
            }
-         } else if (data.length > 0 && !selectedVerse) {
-           setSelectedVerse(data[0]); // Default to first verse if none selected
          }
        })
        .catch((err) => {
          console.error("Error fetching verses:", err);
          setVerses([]);
        });
-  }, [currentChapter, selectedBookAbbr, location.pathname]);
+  }, [currentChapter, selectedBookAbbr]);
 
   // Save edited grammar breakdown
   const saveEdit = async () => {
@@ -2071,6 +2145,13 @@ const VersePage: React.FC = () => {
 
   // Navigate to verse from queue
   const handleQueueNavigate = (book: string, chapter: number, verse: number) => {
+    // Update state first to prevent flickering
+    if (book !== selectedBookAbbr) {
+      setSelectedBookAbbr(book);
+    }
+    if (chapter !== currentChapter) {
+      setCurrentChapter(chapter);
+    }
     navigate(`/${book}/${chapter}/${verse}`);
   };
 
@@ -2109,6 +2190,34 @@ const VersePage: React.FC = () => {
     // Check if OpenAI is available
     checkOpenAIAvailability();
   }, []);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle arrow keys if no input/textarea is focused and not during transitions
+      const activeElement = document.activeElement;
+      const isInputFocused = activeElement?.tagName === 'INPUT' || 
+                             activeElement?.tagName === 'TEXTAREA' || 
+                             activeElement?.getAttribute('contenteditable') === 'true';
+      
+      if (isInputFocused || isTransitioning || !selectedVerse) return;
+      
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        if (selectedVerse.verse_number > 1) {
+          handleVerseChangeWithAnimation(selectedVerse.verse_number - 1, 'slide-up');
+        }
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        if (selectedVerse.verse_number < verses.length) {
+          handleVerseChangeWithAnimation(selectedVerse.verse_number + 1, 'slide-down');
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedVerse, verses.length, isTransitioning]);
 
   const loadOpenAIAnalysis = async () => {
     if (!selectedVerse) return;
@@ -2273,17 +2382,52 @@ const VersePage: React.FC = () => {
     await loadOpenAIAnalysis();
   };
 
+  const handleVerseChangeWithAnimation = (verseNumber: number, animation: 'slide-down' | 'slide-up') => {
+    if (verseNumber >= 1 && verseNumber <= verses.length && !isTransitioning) {
+      const newVerse = verses.find(v => v.verse_number === verseNumber);
+      if (newVerse) {
+        setIsTransitioning(true);
+        setVerseAnimation(animation);
+        
+        // Start the animation
+        setTimeout(() => {
+          setIsNavigating(true);
+          setSelectedVerse(newVerse);
+          updateURL(selectedBookAbbr, currentChapter, verseNumber);
+          
+          // Reset animation and navigation flags
+          setTimeout(() => {
+            setVerseAnimation('none');
+            setIsNavigating(false);
+            setIsTransitioning(false);
+          }, 500); // Animation duration
+        }, 50); // Small delay to ensure animation starts
+      }
+    }
+  };
+
   const handleVerseChange = (verseNumber: number) => {
     if (verseNumber >= 1 && verseNumber <= verses.length) {
       const newVerse = verses.find(v => v.verse_number === verseNumber);
       if (newVerse) {
+        setIsNavigating(true);
         setSelectedVerse(newVerse);
-        navigate(`/${selectedBookAbbr}/${currentChapter}/${verseNumber}`);
+        updateURL(selectedBookAbbr, currentChapter, verseNumber);
+        // Reset navigation flag after a short delay
+        setTimeout(() => setIsNavigating(false), 100);
       }
     }
   };
 
   const handleNavigateToOccurrence = (book: string, chapter: number, verse: number) => {
+    // Update state first to prevent flickering
+    if (book !== selectedBookAbbr) {
+      setSelectedBookAbbr(book);
+    }
+    if (chapter !== currentChapter) {
+      setCurrentChapter(chapter);
+    }
+    // URL will be updated by the URL parsing effect
     navigate(`/${book}/${chapter}/${verse}`);
   };
   
@@ -2451,7 +2595,7 @@ const VersePage: React.FC = () => {
     }
   };
 
-  // ... inside VersePage component before the return statement, add helper
+  // Helper function to render interpretation layers
   const renderInterpretationLayers = () => {
     if (!analysisResultHasLayers(verseAnalysisState)) return null;
 
@@ -2483,6 +2627,9 @@ const VersePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#fefaf0] text-black p-8">
+      {/* Inject custom CSS */}
+      <style dangerouslySetInnerHTML={{ __html: customScrollbarStyle }} />
+      
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
@@ -2498,10 +2645,14 @@ const VersePage: React.FC = () => {
           {/* Verse navigation/selector */}
           <div className="bg-white border-4 border-black rounded-xl shadow-2xl shadow-gray-400/50 p-4 w-full flex flex-wrap gap-4 justify-center items-center mb-6">
             <button
-              onClick={() => handleVerseChange(selectedVerse ? selectedVerse.verse_number - 1 : 1)}
-              disabled={!selectedVerse || selectedVerse.verse_number <= 1}
+              onClick={() => {
+                if (selectedVerse && selectedVerse.verse_number > 1) {
+                  handleVerseChangeWithAnimation(selectedVerse.verse_number - 1, 'slide-up');
+                }
+              }}
+              disabled={!selectedVerse || selectedVerse.verse_number <= 1 || isTransitioning}
               className="px-3 py-2 text-lg font-black text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-30 transition-all duration-200 border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px]"
-              title="Previous verse"
+              title="Previous verse (← arrow key)"
             >
               <FontAwesomeIcon icon={faArrowLeft} />
             </button>
@@ -2517,10 +2668,14 @@ const VersePage: React.FC = () => {
               />
             )}
             <button
-              onClick={() => handleVerseChange(selectedVerse ? selectedVerse.verse_number + 1 : 1)}
-              disabled={!selectedVerse || selectedVerse.verse_number >= verses.length}
+              onClick={() => {
+                if (selectedVerse && selectedVerse.verse_number < verses.length) {
+                  handleVerseChangeWithAnimation(selectedVerse.verse_number + 1, 'slide-down');
+                }
+              }}
+              disabled={!selectedVerse || selectedVerse.verse_number >= verses.length || isTransitioning}
               className="px-3 py-2 text-lg font-black text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-30 transition-all duration-200 border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px]"
-              title="Next verse"
+              title="Next verse (→ arrow key)"
             >
               <FontAwesomeIcon icon={faArrowRight} />
             </button>
@@ -2532,10 +2687,11 @@ const VersePage: React.FC = () => {
               <FontAwesomeIcon icon={faBook} />
               {BOOK_NAMES[selectedBookAbbr] || selectedBookAbbr} {currentChapter}:{selectedVerse?.verse_number}
             </div>
-            <div className="min-h-[120px] flex items-center justify-center px-4 py-2" style={{ willChange: 'auto' }}>
+            <div className="verse-container min-h-[120px] flex items-center justify-center px-4 py-2">
               {selectedVerse && (
-                <p className="text-xl font-bold text-center break-words whitespace-pre-line w-full max-w-full text-black leading-relaxed">
-                {selectedVerse?.text.split(' ').map((word, index) => {
+                <div className={`verse-content ${verseAnimation !== 'none' ? verseAnimation : ''}`}>
+                  <p className="text-xl font-bold text-center break-words whitespace-pre-line w-full max-w-full text-black leading-relaxed">
+                  {selectedVerse?.text.split(' ').map((word, index) => {
                   const cleanWord = word.replace(/[.,:;?!]$/, '');
                   const normalized = normalizeLatin(cleanWord);
                   const wordInfo = verseAnalysisState.analysis[normalized];
@@ -2605,7 +2761,8 @@ const VersePage: React.FC = () => {
                     </span>
                   );
                 })}
-                </p>
+                  </p>
+                </div>
               )}
             </div>
             
