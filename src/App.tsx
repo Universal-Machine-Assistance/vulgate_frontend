@@ -2168,6 +2168,49 @@ const VersePage: React.FC = () => {
     checkOpenAIAvailability();
   }, []);
 
+  // Helper function to get the last verse number of a chapter
+  const getLastVerseOfChapter = async (book: string, chapter: number): Promise<number> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/verses/by-reference/${book}/${chapter}`);
+      if (!response.ok) return 1;
+      const verses = await response.json();
+      return verses.length > 0 ? verses[verses.length - 1].verse_number : 1;
+    } catch (error) {
+      console.error('Error fetching chapter verses:', error);
+      return 1;
+    }
+  };
+
+  // Enhanced navigation functions for cross-chapter support
+  const navigateToPreviousVerse = async () => {
+    if (!selectedVerse) return;
+    
+    if (selectedVerse.verse_number > 1) {
+      // Navigate within current chapter
+      handleVerseChangeWithAnimation(selectedVerse.verse_number - 1, 'slide-up');
+    } else if (currentChapter > 1) {
+      // Navigate to last verse of previous chapter
+      const previousChapter = currentChapter - 1;
+      const lastVerse = await getLastVerseOfChapter(selectedBookAbbr, previousChapter);
+      setCurrentChapter(previousChapter);
+      updateURL(selectedBookAbbr, previousChapter, lastVerse);
+    }
+  };
+
+  const navigateToNextVerse = async () => {
+    if (!selectedVerse) return;
+    
+    if (selectedVerse.verse_number < verses.length) {
+      // Navigate within current chapter
+      handleVerseChangeWithAnimation(selectedVerse.verse_number + 1, 'slide-down');
+    } else if (currentChapter < chapters.length) {
+      // Navigate to verse 1 of next chapter
+      const nextChapter = currentChapter + 1;
+      setCurrentChapter(nextChapter);
+      updateURL(selectedBookAbbr, nextChapter, 1);
+    }
+  };
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -2181,14 +2224,10 @@ const VersePage: React.FC = () => {
       
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
-        if (selectedVerse.verse_number > 1) {
-          handleVerseChangeWithAnimation(selectedVerse.verse_number - 1, 'slide-up');
-        }
+        navigateToPreviousVerse();
       } else if (event.key === 'ArrowRight') {
         event.preventDefault();
-        if (selectedVerse.verse_number < verses.length) {
-          handleVerseChangeWithAnimation(selectedVerse.verse_number + 1, 'slide-down');
-        }
+        navigateToNextVerse();
       } else if (event.key === 'ArrowUp') {
         event.preventDefault();
         if (currentChapter > 1) {
@@ -2726,14 +2765,10 @@ const VersePage: React.FC = () => {
           {/* Verse navigation/selector */}
           <div className="bg-white border-4 border-black rounded-xl shadow-2xl shadow-gray-400/50 p-4 w-full flex flex-wrap gap-4 justify-center items-center mb-6">
             <button
-              onClick={() => {
-                if (selectedVerse && selectedVerse.verse_number > 1) {
-                  handleVerseChangeWithAnimation(selectedVerse.verse_number - 1, 'slide-up');
-                }
-              }}
-              disabled={!selectedVerse || selectedVerse.verse_number <= 1 || isTransitioning}
+              onClick={navigateToPreviousVerse}
+              disabled={!selectedVerse || (selectedVerse.verse_number <= 1 && currentChapter <= 1) || isTransitioning}
               className="px-3 py-2 text-lg font-black text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-30 transition-all duration-200 border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px]"
-              title="Previous verse (← arrow key)"
+              title="Previous verse (← arrow key) - crosses chapters"
             >
               <FontAwesomeIcon icon={faArrowLeft} />
             </button>
@@ -2749,14 +2784,10 @@ const VersePage: React.FC = () => {
               />
             )}
             <button
-              onClick={() => {
-                if (selectedVerse && selectedVerse.verse_number < verses.length) {
-                  handleVerseChangeWithAnimation(selectedVerse.verse_number + 1, 'slide-down');
-                }
-              }}
-              disabled={!selectedVerse || selectedVerse.verse_number >= verses.length || isTransitioning}
+              onClick={navigateToNextVerse}
+              disabled={!selectedVerse || (selectedVerse.verse_number >= verses.length && currentChapter >= chapters.length) || isTransitioning}
               className="px-3 py-2 text-lg font-black text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-30 transition-all duration-200 border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px]"
-              title="Next verse (→ arrow key)"
+              title="Next verse (→ arrow key) - crosses chapters"
             >
               <FontAwesomeIcon icon={faArrowRight} />
             </button>
