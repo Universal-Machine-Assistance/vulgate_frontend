@@ -342,10 +342,50 @@ const GRAMMAR_COLORS: Record<GrammarColorKey, string> = {
   'default': 'bg-gray-100 text-gray-800 border-gray-300'
 };
 
-// Simple markdown renderer for basic formatting
+// Enhanced markdown renderer with translation type styling
 const renderMarkdown = (text: string): JSX.Element => {
   if (!text) return <span>{text}</span>;
   
+  // Check if text contains Literal: and Dynamic: patterns
+  if (text.includes('Literal:') && text.includes('Dynamic:')) {
+    // Split the text by the patterns
+    const literalMatch = text.match(/Literal:\s*([\s\S]+?)(?=\s*Dynamic:|$)/);
+    const dynamicMatch = text.match(/Dynamic:\s*([\s\S]+?)$/);
+    
+    return (
+      <div className="space-y-4">
+        {literalMatch && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <FontAwesomeIcon icon={faBookOpen} className="text-blue-700" />
+              <span className="font-black text-blue-700 uppercase tracking-wide">Literal:</span>
+            </div>
+            <div className="text-gray-800 pl-6">
+              {processBasicMarkdown(literalMatch[1].trim())}
+            </div>
+          </div>
+        )}
+        {dynamicMatch && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <FontAwesomeIcon icon={faRobot} className="text-green-700" />
+              <span className="font-black text-green-700 uppercase tracking-wide">Dynamic:</span>
+            </div>
+            <div className="text-gray-800 pl-6">
+              {processBasicMarkdown(dynamicMatch[1].trim())}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  // Fallback to basic markdown processing
+  return <span>{processBasicMarkdown(text)}</span>;
+};
+
+// Helper function for basic markdown processing
+const processBasicMarkdown = (text: string): JSX.Element => {
   // Split by bold markers and process
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   
@@ -374,16 +414,54 @@ const renderMarkdown = (text: string): JSX.Element => {
   );
 };
 
-// Translation type detection and icon mapping
+// Language cycle indicator component for translation working state
+const LanguageCycleIndicator: React.FC = () => {
+  const [currentFlag, setCurrentFlag] = React.useState(0);
+  const flags = ['🇺🇸', '🇫🇷', '🇪🇸', '🇵🇹', '🇮🇹'];
+  
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentFlag(prev => (prev + 1) % flags.length);
+    }, 400); // Change flag every 400ms
+    
+    return () => clearInterval(interval);
+  }, [flags.length]);
+  
+  return (
+    <div className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full flex items-center justify-center translation-working-indicator">
+      <span className="text-xs" style={{ fontSize: '8px' }}>
+        {flags[currentFlag]}
+      </span>
+    </div>
+  );
+};
+
+// Enhanced translation type detection with distinct visual styling
 const getTranslationTypeIcon = (language: string, translationText: string) => {
   // Simple heuristics to determine translation type
   const hasWordForWord = translationText.includes('*') || translationText.includes('[') || translationText.includes('(');
   const isLiteral = hasWordForWord || translationText.split(' ').length <= 15;
   
   if (isLiteral) {
-    return { icon: faQuoteLeft, type: 'Literal', color: 'text-blue-600' };
+    return { 
+      icon: faBookOpen, 
+      type: 'Literal', 
+      color: 'text-blue-700',
+      bgColor: 'bg-blue-100',
+      borderColor: 'border-blue-300',
+      description: 'Word-for-word',
+      emoji: '📖'
+    };
   } else {
-    return { icon: faExchangeAlt, type: 'Dynamic', color: 'text-green-600' };
+    return { 
+      icon: faRobot, 
+      type: 'Dynamic', 
+      color: 'text-green-700',
+      bgColor: 'bg-green-100', 
+      borderColor: 'border-green-300',
+      description: 'Thought-for-thought',
+      emoji: '🤖'
+    };
   }
 };
 
@@ -768,16 +846,14 @@ const WordVerseRelationships: React.FC<{
   );
 };
 
-// WordInfo Component
+// WordInfo Component - Simplified without buttons
 const WordInfoComponent: React.FC<{ 
   wordInfo: WordInfo | null; 
   className?: string;
   onClose?: () => void;
   isPopup?: boolean;
-  onRegenerate?: (word: string) => void;
-  onGrebAI?: (word: string) => void;
   onNavigateToVerse?: (reference: string) => void;
-}> = ({ wordInfo, className = "", onClose, isPopup = false, onRegenerate, onGrebAI, onNavigateToVerse }) => {
+}> = ({ wordInfo, className = "", onClose, isPopup = false, onNavigateToVerse }) => {
   const [isVisible, setIsVisible] = React.useState(false);
   const [currentWordInfo, setCurrentWordInfo] = React.useState(wordInfo);
 
@@ -808,14 +884,6 @@ const WordInfoComponent: React.FC<{
 
   const grammarColorClasses = getGrammarColorClasses(currentWordInfo.partOfSpeech);
 
-
-
-  const handleRegenerate = async () => {
-    if (onRegenerate && currentWordInfo.latin) {
-      onRegenerate(currentWordInfo.latin);
-    }
-  };
-
   // Grammar-based styling with neubrutalist design
   const containerClasses = isPopup 
     ? `${grammarColorClasses} border-4 border-black rounded-none p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform transition-all duration-300 ease-in-out` 
@@ -839,26 +907,6 @@ const WordInfoComponent: React.FC<{
             <FontAwesomeIcon icon={faBook} className="text-black" />
             {currentWordInfo.latin}
           </h3>
-          <div className="flex items-center gap-2">
-            {onRegenerate && currentWordInfo.source !== 'loading' && (
-              <button
-                onClick={handleRegenerate}
-                className="bg-yellow-200 hover:bg-yellow-300 text-black px-3 py-1 rounded-none text-xs font-black transition-all duration-200 hover:scale-105 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] uppercase tracking-wide"
-                title="Regenerate analysis (clears cache)"
-              >
-                🔄 REFRESH
-              </button>
-            )}
-            {onGrebAI && currentWordInfo.source !== 'loading' && (
-              <button
-                onClick={() => onGrebAI(currentWordInfo.latin)}
-                className="bg-purple-200 hover:bg-purple-300 text-black px-2 py-1 rounded-none text-xs font-black transition-all duration-200 hover:scale-105 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1"
-                title="Get Greb Enhanced (OpenAI) Definition"
-              >
-                <img src={GrebLogo} alt="Greb" className="w-4 h-4" /> GREB
-              </button>
-            )}
-          </div>
         </div>
         <div className="text-sm space-y-2">
           <p className="transition-all duration-300"><strong className="text-black font-black uppercase">Definition:</strong> <span className="font-medium">{currentWordInfo.definition}</span></p>
@@ -1163,6 +1211,60 @@ const customScrollbarStyle = `
     0% { box-shadow: none; }
     50% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
     100% { box-shadow: none; }
+  }
+  
+  /* Floating translation icon popup animation */
+  @keyframes floatingTranslationPop {
+    0% { 
+      transform: scale(0) rotate(0deg);
+      opacity: 0;
+    }
+    50% { 
+      transform: scale(1.2) rotate(180deg);
+      opacity: 0.8;
+    }
+    100% { 
+      transform: scale(1) rotate(360deg);
+      opacity: 1;
+    }
+  }
+  
+  /* Translation working animation */
+  .translation-working-indicator {
+    animation: translationWorking 1.5s ease-in-out infinite;
+  }
+  
+  @keyframes translationWorking {
+    0%, 100% { 
+      transform: scale(1);
+      opacity: 1;
+    }
+    25% { 
+      transform: scale(1.2);
+      opacity: 0.8;
+    }
+    50% { 
+      transform: scale(0.8);
+      opacity: 1;
+    }
+    75% { 
+      transform: scale(1.1);
+      opacity: 0.9;
+    }
+  }
+  
+  /* Enhanced working state with language cycling animation */
+  .translation-languages-cycling {
+    animation: languagesCycling 2s ease-in-out infinite;
+  }
+  
+  @keyframes languagesCycling {
+    0% { content: '🇺🇸'; }
+    20% { content: '🇫🇷'; }
+    40% { content: '🇪🇸'; }
+    60% { content: '🇵🇹'; }
+    80% { content: '🇮🇹'; }
+    100% { content: '🌐'; }
   }
 `;
 
@@ -2229,6 +2331,29 @@ const VersePage: React.FC = () => {
 
   // Navigation state to prevent rapid clicks and race conditions
   const [navigationInProgress, setNavigationInProgress] = useState(false);
+  
+  // Floating translation icon state
+  const [showFloatingTranslation, setShowFloatingTranslation] = useState(false);
+  
+  // Hide floating translation icon when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showFloatingTranslation) {
+        const target = event.target as HTMLElement;
+        if (!target.closest('.floating-translation-container')) {
+          setShowFloatingTranslation(false);
+        }
+      }
+    };
+
+    if (showFloatingTranslation) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showFloatingTranslation]);
 
   // Enhanced navigation functions for cross-chapter support with proper synchronization
   const navigateToPreviousVerse = async () => {
@@ -2398,22 +2523,40 @@ const VersePage: React.FC = () => {
     });
 
     if (Object.keys(newTranslations).length > 0) {
-      // Update verse analysis state with new translations
-      setVerseAnalysisState(prev => ({
-        ...prev,
-        translations: {
-          ...prev.translations,
+              // Update verse analysis state with new translations
+        setVerseAnalysisState(prev => ({
+          ...prev,
+          translations: {
+            ...prev.translations,
+            ...newTranslations
+          }
+        }));
+
+        // Update available translations
+        setAvailableTranslations(prev => ({
+          ...prev,
           ...newTranslations
+        }));
+
+        // Cache the updated translations to localStorage
+        const verseRef = `${selectedBookAbbr} ${currentChapter}:${selectedVerse.verse_number}`;
+        const cacheKey = `verse_analysis_${verseRef}`;
+        try {
+          const existingCache = localStorage.getItem(cacheKey);
+          if (existingCache) {
+            const cachedData = JSON.parse(existingCache);
+            cachedData.translations = {
+              ...cachedData.translations,
+              ...newTranslations
+            };
+            localStorage.setItem(cacheKey, JSON.stringify(cachedData));
+            console.log(`Updated cached translations for ${verseRef}`);
+          }
+        } catch (error) {
+          console.warn('Failed to update cached translations:', error);
         }
-      }));
 
-      // Update available translations
-      setAvailableTranslations(prev => ({
-        ...prev,
-        ...newTranslations
-      }));
-
-      console.log(`Successfully fetched ${Object.keys(newTranslations).length} translations`);
+        console.log(`Successfully fetched ${Object.keys(newTranslations).length} translations`);
     }
 
     setIsGeneratingTranslations(false);
@@ -2517,11 +2660,16 @@ const VersePage: React.FC = () => {
         
         setTheologicalInterpretation((interpretation || 'AI analysis complete.') + ' 🤖 Enhanced with Greb AI + Translations');
         
-        // Cache the OpenAI results
+        // Cache the OpenAI results with enhanced translation data
         try {
           const cacheKey = `verse_analysis_${verseRef}`;
-          localStorage.setItem(cacheKey, JSON.stringify(analysisResult));
-          console.log(`Cached OpenAI analysis for ${verseRef}`);
+          const cacheData = {
+            ...analysisResult,
+            cached_at: new Date().toISOString(),
+            cache_type: 'openai_enhanced'
+          };
+          localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+          console.log(`Cached OpenAI analysis with translations for ${verseRef}`);
         } catch (error) {
           console.warn('Failed to cache OpenAI analysis:', error);
         }
@@ -2582,6 +2730,24 @@ const VersePage: React.FC = () => {
           }
         }));
         
+        // Cache the individual translation to localStorage
+        const verseRef = `${selectedBookAbbr} ${currentChapter}:${selectedVerse.verse_number}`;
+        const cacheKey = `verse_analysis_${verseRef}`;
+        try {
+          const existingCache = localStorage.getItem(cacheKey);
+          if (existingCache) {
+            const cachedData = JSON.parse(existingCache);
+            if (!cachedData.translations) {
+              cachedData.translations = {};
+            }
+            cachedData.translations[language] = translationResult.translation;
+            localStorage.setItem(cacheKey, JSON.stringify(cachedData));
+            console.log(`Cached individual translation for ${language} in ${verseRef}`);
+          }
+        } catch (error) {
+          console.warn(`Failed to cache translation for ${language}:`, error);
+        }
+        
         console.log(`Translation to ${language} completed`);
       }
     } catch (error) {
@@ -2591,11 +2757,110 @@ const VersePage: React.FC = () => {
     }
   };
   
-  // NEW: Compact Greb AI enhance/refresh handler
-  const handleEnhanceClick = async () => {
+  // Enhanced Greb AI click handler with Alt+Click detection
+  const handleEnhanceClick = async (event: React.MouseEvent) => {
     if (!selectedVerse || isOpenAIAnalyzing) return;
-    // Always run a fresh Greb AI enhancement, bypassing cached DB/localStorage fetches
+    
+    // Check for Alt+Click to show floating translation icon
+    if (event.altKey) {
+      event.preventDefault();
+      setShowFloatingTranslation(!showFloatingTranslation);
+      return;
+    }
+    
+    // Regular click - run Greb AI enhancement
     await loadOpenAIAnalysis();
+  };
+  
+  // Force generate all translations
+  const handleForceTranslations = async () => {
+    if (!selectedVerse) return;
+    
+    setIsGeneratingTranslations(true);
+    setShowFloatingTranslation(false); // Hide the floating icon
+    
+    try {
+      // Force fetch all supported languages
+      const allLanguages = LANGUAGES.map(lang => lang.code);
+      
+      const translationPromises = allLanguages.map(async (language) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/dictionary/translate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              verse: selectedVerse.text, 
+              language: language,
+              force: true // Force regeneration
+            })
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+              return { language, translation: result.translation };
+            }
+          }
+          console.warn(`Failed to force generate translation for ${language}`);
+          return null;
+        } catch (error) {
+          console.error(`Error force generating translation for ${language}:`, error);
+          return null;
+        }
+      });
+
+      const results = await Promise.all(translationPromises);
+      const newTranslations: { [key: string]: string } = {};
+
+      results.forEach(result => {
+        if (result) {
+          newTranslations[result.language] = result.translation;
+        }
+      });
+
+      if (Object.keys(newTranslations).length > 0) {
+        // Update verse analysis state with new translations
+        setVerseAnalysisState(prev => ({
+          ...prev,
+          translations: {
+            ...prev.translations,
+            ...newTranslations
+          }
+        }));
+
+        // Cache the force-generated translations to localStorage
+        const verseRef = `${selectedBookAbbr} ${currentChapter}:${selectedVerse.verse_number}`;
+        const cacheKey = `verse_analysis_${verseRef}`;
+        try {
+          const existingCache = localStorage.getItem(cacheKey);
+          if (existingCache) {
+            const cachedData = JSON.parse(existingCache);
+            cachedData.translations = {
+              ...cachedData.translations,
+              ...newTranslations
+            };
+            localStorage.setItem(cacheKey, JSON.stringify(cachedData));
+            console.log(`Force-cached translations for ${verseRef}`);
+          } else {
+            // Create new cache entry with translations
+            const newCacheData = {
+              translations: newTranslations,
+              cached_at: new Date().toISOString()
+            };
+            localStorage.setItem(cacheKey, JSON.stringify(newCacheData));
+            console.log(`Created new translation cache for ${verseRef}`);
+          }
+        } catch (error) {
+          console.warn('Failed to cache force-generated translations:', error);
+        }
+
+        console.log(`Force generated ${Object.keys(newTranslations).length} translations`);
+      }
+    } catch (error) {
+      console.error('Error force generating translations:', error);
+    } finally {
+      setIsGeneratingTranslations(false);
+    }
   };
 
   const handleVerseChangeWithAnimation = (verseNumber: number, animation: 'slide-down' | 'slide-up') => {
@@ -2794,10 +3059,16 @@ const VersePage: React.FC = () => {
         wordInfo: (data.analysis || {})[firstWordNorm] || null
       }));
 
-      // Cache the analysis result
+      // Cache the analysis result with enhanced data
       const verseRef = `${selectedBookAbbr} ${currentChapter}:${selectedVerse.verse_number}`;
       const cacheKey = `verse_analysis_${verseRef}`;
-      localStorage.setItem(cacheKey, JSON.stringify(data));
+      const cacheData = {
+        ...data,
+        cached_at: new Date().toISOString(),
+        cache_type: 'standard_analysis'
+      };
+      localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+      console.log(`Cached standard analysis with translations for ${verseRef}`);
 
       // Ensure all translations are available after analysis
       await ensureAllTranslationsAvailable();
@@ -2998,42 +3269,53 @@ const VersePage: React.FC = () => {
               </div>
             )}
             
-            {/* Enhanced Translation Display with Markdown and Icons */}
+            {/* Enhanced Translation Display with Clear Visual Distinction */}
             {!isVerseLoading && verseAnalysisState.translations && Object.keys(verseAnalysisState.translations).length > 0 && (
               <div className="mt-4 border-t-2 border-gray-200 pt-4">
-                <div className="bg-gradient-to-br from-gray-50 via-white to-gray-50 rounded-lg p-6 border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                  {(() => {
-                    const currentTranslation = verseAnalysisState.translations[selectedTranslationLang];
-                    const translationType = getTranslationTypeIcon(selectedTranslationLang, currentTranslation);
-                    const languageName = LANGUAGES.find(lang => lang.code === selectedTranslationLang)?.name || selectedTranslationLang.toUpperCase();
-                    
-                    return (
-                      <>
-                        <div className="flex items-center justify-center gap-3 mb-3">
+                {(() => {
+                  const currentTranslation = verseAnalysisState.translations[selectedTranslationLang];
+                  const translationType = getTranslationTypeIcon(selectedTranslationLang, currentTranslation);
+                  const languageName = LANGUAGES.find(lang => lang.code === selectedTranslationLang)?.name || selectedTranslationLang.toUpperCase();
+                  const languageFlag = LANGUAGES.find(lang => lang.code === selectedTranslationLang)?.flag || '🌐';
+                  
+                  return (
+                    <div className={`${translationType.bgColor} ${translationType.borderColor} border-4 rounded-lg p-6 shadow-lg`}>
+                      {/* Clear Translation Type Header */}
+                      <div className="flex items-center justify-center gap-4 mb-4">
+                        <div className={`${translationType.bgColor} ${translationType.borderColor} border-2 rounded-full p-3 shadow-md`}>
                           <FontAwesomeIcon 
                             icon={translationType.icon} 
-                            className={`text-lg ${translationType.color}`}
+                            className={`text-2xl ${translationType.color}`}
                           />
-                          <div className="text-center">
-                            <div className="text-sm font-black uppercase tracking-wide text-gray-700">
-                              {languageName} • {translationType.type} Translation
-                            </div>
-                            <div className="text-xs text-gray-500 uppercase tracking-wider">
-                              {translationType.type === 'Literal' ? 'Word-for-word' : 'Thought-for-thought'}
-                            </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="flex items-center gap-2 justify-center mb-1">
+                            <span className="text-2xl">{languageFlag}</span>
+                            <span className="text-xl font-black text-gray-800">{languageName}</span>
+                            <span className="text-2xl">{translationType.emoji}</span>
                           </div>
+                          <div className={`${translationType.color} font-black text-lg uppercase tracking-wide flex items-center gap-2 justify-center`}>
+                            {translationType.type} Translation
+                          </div>
+                          <div className="text-sm text-gray-600 italic">
+                            {translationType.description}
+                          </div>
+                        </div>
+                        <div className={`${translationType.bgColor} ${translationType.borderColor} border-2 rounded-full p-3 shadow-md`}>
                           <FontAwesomeIcon 
                             icon={faGem} 
-                            className="text-lg text-yellow-600"
+                            className="text-2xl text-yellow-600"
                           />
                         </div>
-                        <div className="text-gray-800 leading-relaxed text-center text-lg">
-                          {renderMarkdown(currentTranslation)}
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
+                      </div>
+                      
+                      {/* Translation Text */}
+                      <div className="text-gray-800 leading-relaxed text-center text-lg font-medium">
+                        {renderMarkdown(currentTranslation)}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -3077,21 +3359,53 @@ const VersePage: React.FC = () => {
                 <FontAwesomeIcon icon={faUpload} />
               </button>
             )}
-            {/* OpenAI Analysis button moved here */}
-            <button
-              className={`p-3 rounded-full border-2 border-black ${
-                isOpenAIAnalyzing ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700'
-              } text-white shadow transition-colors duration-200`}
-              title="Enhance analysis with Greb AI / Refresh analysis"
-              onClick={handleEnhanceClick}
-              disabled={!selectedVerse || isOpenAIAnalyzing}
-            >
-              {isOpenAIAnalyzing ? (
-                <FontAwesomeIcon icon={faSpinner} spin />
-              ) : (
-                <FontAwesomeIcon icon={faBrain} />
+            {/* Enhanced OpenAI Analysis button with floating translation icon */}
+            <div className="relative floating-translation-container">
+              <button
+                className={`p-3 rounded-full border-2 border-black ${
+                  isOpenAIAnalyzing ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700'
+                } text-white shadow transition-colors duration-200`}
+                title="Click: Enhance analysis with Greb AI | Alt+Click: Show translation generator"
+                onClick={handleEnhanceClick}
+                disabled={!selectedVerse || isOpenAIAnalyzing}
+              >
+                {isOpenAIAnalyzing ? (
+                  <FontAwesomeIcon icon={faSpinner} spin />
+                ) : (
+                  <FontAwesomeIcon icon={faBrain} />
+                )}
+              </button>
+              
+              {/* Floating Translation Icon */}
+              {showFloatingTranslation && (
+                <div className="absolute -top-6 -right-1 z-50">
+                  <button
+                    onClick={handleForceTranslations}
+                    disabled={isGeneratingTranslations}
+                    className={`w-10 h-10 rounded-full border-2 border-black shadow-lg transform transition-all duration-300 ease-out ${
+                      isGeneratingTranslations 
+                        ? 'bg-gradient-to-r from-yellow-400 to-orange-400 cursor-not-allowed' 
+                        : 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 hover:scale-110 animate-bounce'
+                    } text-white flex items-center justify-center relative overflow-hidden`}
+                    style={{
+                      animation: showFloatingTranslation 
+                        ? 'floatingTranslationPop 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)' 
+                        : undefined
+                    }}
+                    title="Force generate all translations"
+                  >
+                    {isGeneratingTranslations ? (
+                      <div className="relative">
+                        <FontAwesomeIcon icon={faSpinner} spin className="text-sm" />
+                        <LanguageCycleIndicator />
+                      </div>
+                    ) : (
+                      <FontAwesomeIcon icon={faLanguage} className="text-sm" />
+                    )}
+                  </button>
+                </div>
               )}
-            </button>
+            </div>
           </div>
           
           {/* Recording status */}
@@ -3116,32 +3430,6 @@ const VersePage: React.FC = () => {
                 {verseAnalysisState.wordInfo && (
                   <WordInfoComponent 
                     wordInfo={verseAnalysisState.wordInfo}
-                    onRegenerate={async (word: string) => {
-                      // Clear cache and regenerate
-                      setVerseAnalysisState(prev => ({
-                        ...prev,
-                        wordInfo: {
-                          latin: word,
-                          definition: 'Regenerating...',
-                          etymology: '',
-                          partOfSpeech: '',
-                          source: 'loading',
-                          found: false
-                        }
-                      }));
-                      
-                      try {
-                        const response = await fetch(`${API_BASE_URL}/dictionary/lookup/${encodeURIComponent(word)}?regenerate=true`);
-                        const data = await response.json();
-                        setVerseAnalysisState(prev => ({
-                          ...prev,
-                          wordInfo: data
-                        }));
-                      } catch (error) {
-                        console.error('Error regenerating word info:', error);
-                      }
-                    }}
-                    onGrebAI={handleGrebAIDefinition}
                     onNavigateToVerse={(reference: string) => {
                       const parts = reference.split(' ');
                       if (parts.length >= 2) {
@@ -3291,7 +3579,7 @@ function getHighlightTextForWordType(partOfSpeech: string) {
   }
 }
 
-// Enhanced Language Dropdown with translation type indicators
+// Enhanced Language Dropdown with clear translation type indicators
 const LanguageDropdown: React.FC<{
   languages: string[];
   selectedLang: string;
@@ -3306,43 +3594,43 @@ const LanguageDropdown: React.FC<{
     setIsOpen(false);
   };
 
-  const currentTranslationType = translations[selectedLang] 
-    ? getTranslationTypeIcon(selectedLang, translations[selectedLang])
-    : { icon: faLanguage, type: 'Translation', color: 'text-white' };
+  const languageName = LANGUAGES.find(l => l.code === selectedLang)?.name || selectedLang.toUpperCase();
+  const languageFlag = LANGUAGES.find(l => l.code === selectedLang)?.flag || '🌐';
 
   return (
     <div className="relative inline-block text-left">
       <button
         onClick={toggleDropdown}
-        className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white font-black border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center gap-2"
+        className="px-4 py-2 bg-white hover:bg-gray-50 text-black font-black border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] flex items-center gap-2 transition-all duration-200"
       >
-        <FontAwesomeIcon icon={currentTranslationType.icon} className="text-white" />
-        {selectedLang.toUpperCase()}
-        <FontAwesomeIcon icon={faChevronDown} className="ml-1" />
+        <span className="text-lg">{languageFlag}</span>
+        <span className="font-black text-black">{languageName}</span>
+        <FontAwesomeIcon icon={faChevronDown} className="ml-1 text-gray-600" />
       </button>
       {isOpen && (
-        <div className="origin-top-right absolute z-50 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
+        <div className="origin-top-right absolute z-50 mt-2 w-48 bg-white border-4 border-black rounded-none shadow-lg">
           {languages.map(lang => {
-            const langTranslationType = translations[lang] 
-              ? getTranslationTypeIcon(lang, translations[lang])
-              : { icon: faLanguage, type: 'Translation', color: 'text-gray-500' };
-            const languageName = LANGUAGES.find(l => l.code === lang)?.name || lang.toUpperCase();
+            const langName = LANGUAGES.find(l => l.code === lang)?.name || lang.toUpperCase();
+            const langFlag = LANGUAGES.find(l => l.code === lang)?.flag || '🌐';
             
             return (
               <button
                 key={lang}
                 onClick={() => handleSelect(lang)}
-                className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2 ${selectedLang === lang ? 'font-bold bg-gray-50' : ''}`}
+                className={`block w-full text-left px-4 py-3 hover:bg-gray-100 transition-colors duration-200 flex items-center gap-3 ${
+                  selectedLang === lang ? 'bg-gray-50 border-l-4 border-blue-500' : ''
+                }`}
               >
-                <FontAwesomeIcon 
-                  icon={langTranslationType.icon} 
-                  className={langTranslationType.color}
-                />
-                <div className="flex flex-col">
-                  <span>{languageName}</span>
-                  <span className="text-xs text-gray-500">{langTranslationType.type}</span>
+                <span className="text-lg">{langFlag}</span>
+                <div className="flex-1">
+                  <div className="font-bold text-black">{langName}</div>
                 </div>
-                {selectedLang === lang && <FontAwesomeIcon icon={faGem} className="ml-auto text-yellow-600" />}
+                {selectedLang === lang && (
+                  <div className="flex items-center gap-1">
+                    <FontAwesomeIcon icon={faGem} className="text-yellow-600" />
+                    <span className="text-xs font-bold text-blue-600">ACTIVE</span>
+                  </div>
+                )}
               </button>
             );
           })}
