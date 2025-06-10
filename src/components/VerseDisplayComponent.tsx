@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faArrowLeft, 
@@ -11,7 +11,9 @@ import {
   faUpload, 
   faBrain, 
   faSpinner, 
-  faLanguage 
+  faLanguage,
+  faPhotoVideo,
+  faExpand
 } from '@fortawesome/free-solid-svg-icons';
 import { 
   GrammarColorKey, 
@@ -29,6 +31,9 @@ import ChapterDropdown from './ChapterDropdown';
 import VerseDropdown from './VerseDropdown';
 import LanguageDropdown from './LanguageDropdown';
 import AnimatedWrapper from './AnimatedWrapper';
+import VerseImageManager from './VerseImageManager';
+
+const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
 
 interface VerseAnalysis {
   [key: string]: {
@@ -185,6 +190,7 @@ const VerseDisplayComponent: React.FC<VerseDisplayComponentProps> = ({
   // Location object
   location
 }) => {
+  const [showImageManager, setShowImageManager] = useState(false);
   return (
     <div className="bg-white border-4 border-black rounded-2xl shadow-lg shadow-gray-200/40 p-6 w-full">
       {/* Verse navigation/selector */}
@@ -214,19 +220,16 @@ const VerseDisplayComponent: React.FC<VerseDisplayComponentProps> = ({
           }}
         />
         <VerseDropdown verses={verses} selectedVerseNumber={selectedVerse?.verse_number || 1} handleVerseChange={handleVerseChange} />
-        {/* Language dropdown shows when translations available */}
-        <AnimatedWrapper 
-          show={verseAnalysisState.translations && Object.keys(verseAnalysisState.translations).length > 0}
-          enterClass="smooth-entrance"
-          exitClass="smooth-exit"
-        >
-          <LanguageDropdown
-            languages={Object.keys(verseAnalysisState.translations || {})}
-            selectedLang={selectedTranslationLang}
-            setSelectedLang={setSelectedTranslationLang}
-            translations={verseAnalysisState.translations || {}}
-          />
-        </AnimatedWrapper>
+        {/* Language dropdown - always visible with Latin as default */}
+        <LanguageDropdown
+          languages={['latin', ...Object.keys(verseAnalysisState.translations || {}).filter(lang => lang !== 'latin')]}
+          selectedLang={selectedTranslationLang}
+          setSelectedLang={setSelectedTranslationLang}
+          translations={{
+            latin: selectedVerse?.macronized_text || selectedVerse?.text || '',
+            ...(verseAnalysisState.translations || {})
+          }}
+        />
         <button
           onClick={navigateToNextVerse}
           disabled={!selectedVerse || (selectedVerse.verse_number >= verses.length && currentChapter >= chapters.length) || isTransitioning || navigationInProgress}
@@ -249,6 +252,15 @@ const VerseDisplayComponent: React.FC<VerseDisplayComponentProps> = ({
           </button>
           {BOOK_NAMES[selectedBookAbbr] || selectedBookAbbr} {currentChapter}:{selectedVerse?.verse_number}
 
+          {/* Verse Images Button */}
+          <button
+            onClick={() => setShowImageManager(!showImageManager)}
+            className="text-purple-600 hover:text-purple-800 hover:scale-110 transition-all duration-200 p-1 rounded ml-2"
+            title="Imagines Versus - Manage verse images"
+          >
+            <FontAwesomeIcon icon={showImageManager ? faExpand : faPhotoVideo} />
+          </button>
+
           {/* Sync verification */}
           {selectedVerse && location.pathname !== `/${selectedBookAbbr}/${currentChapter}/${selectedVerse.verse_number}` && !navigationInProgress && (
             <span className="text-sm text-red-600 ml-2" title="Verse may be out of sync">
@@ -256,10 +268,23 @@ const VerseDisplayComponent: React.FC<VerseDisplayComponentProps> = ({
             </span>
           )}
         </div>
+
+        {/* Verse Image Manager */}
+        {showImageManager && selectedVerse && (
+          <div className="mb-4">
+            <VerseImageManager
+              bookAbbr={selectedBookAbbr}
+              chapter={currentChapter}
+              verse={selectedVerse.verse_number}
+              API_BASE_URL={API_BASE_URL}
+              isCompact={false}
+            />
+          </div>
+        )}
         <div className="verse-container min-h-[120px] flex items-center justify-center px-4 py-2 bg-white rounded-2xl shadow-lg shadow-gray-200/40 border border-gray-100">
           {selectedVerse && (
             <div className={`verse-content ${verseAnimation !== 'none' ? verseAnimation : ''}`}>
-              <p className="text-xl font-bold text-center break-words whitespace-pre-line w-full max-w-full text-black leading-relaxed">
+              <div className="text-2xl font-bold text-center break-words whitespace-pre-line w-full max-w-full text-black leading-relaxed">
                 {(selectedVerse?.macronized_text || selectedVerse?.text)?.split(' ').map((word, index) => {
                   const cleanWord = word.replace(/[.,:;?!]$/, '');
                   const normalized = normalizeLatin(cleanWord);
@@ -343,7 +368,7 @@ const VerseDisplayComponent: React.FC<VerseDisplayComponentProps> = ({
                     </button>
                   );
                 })}
-              </p>
+              </div>
             </div>
           )}
         </div>
@@ -361,13 +386,9 @@ const VerseDisplayComponent: React.FC<VerseDisplayComponentProps> = ({
               
               return (
                 <div className="text-center">
-                  <div className="text-xs text-blue-600 font-medium mb-1 flex items-center justify-center gap-1">
-                    <FontAwesomeIcon icon={faLanguage} className="text-xs" />
-                    <span className="uppercase tracking-wide">{selectedTranslationLang}</span>
-                  </div>
-                  <p className="text-sm text-blue-800 leading-snug font-medium italic">
+                  <div className="text-sm text-blue-800 leading-snug font-medium italic">
                     {renderMarkdown(translationText)}
-                  </p>
+                  </div>
                 </div>
               );
             })()}
@@ -377,11 +398,23 @@ const VerseDisplayComponent: React.FC<VerseDisplayComponentProps> = ({
 
       {/* Play/Pause and Record buttons */}
       <div className="flex gap-4 justify-center mt-4 flex-wrap">
-        {audioAvailable && (
-          <button
-            className={`p-3 rounded-full ${isPlaying ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600'} text-white shadow transition-all duration-200`}
-            title={isPlaying ? 'Pause audio (P key)' : 'Play audio with word highlighting (P key)'}
-            onClick={() => {
+        <button
+          className={`p-3 rounded-full transition-all duration-300 ${
+            audioAvailable 
+              ? isPlaying 
+                ? 'bg-yellow-500 hover:bg-yellow-600' 
+                : 'bg-green-500 hover:bg-green-600'
+              : 'bg-gray-400 cursor-not-allowed'
+          } text-white shadow`}
+          title={
+            audioAvailable 
+              ? isPlaying 
+                ? 'Pause audio (P key)' 
+                : 'Play audio with word highlighting (P key)'
+              : 'Audio not available for this verse'
+          }
+          onClick={() => {
+            if (audioAvailable) {
               if (isPlaying) {
                 if (audioSource) audioSource.stop();
                 setIsPlaying(false);
@@ -389,12 +422,12 @@ const VerseDisplayComponent: React.FC<VerseDisplayComponentProps> = ({
               } else {
                 playAudioWithWordHighlighting();
               }
-            }}
-            disabled={!selectedVerse}
-          >
-            <FontAwesomeIcon icon={isPlaying ? faPause : faPlay} />
-          </button>
-        )}
+            }
+          }}
+          disabled={!selectedVerse || !audioAvailable}
+        >
+          <FontAwesomeIcon icon={isPlaying ? faPause : faPlay} />
+        </button>
         <button
           className={`p-3 rounded-full ${isRecording ? 'bg-red-500 hover:bg-red-600 animate-pulse' : 'bg-pink-500 hover:bg-pink-600'} text-white shadow transition-all duration-200 hover:scale-130`}
           title={isRecording ? 'Stop recording (R key)' : 'Start recording (R key)'}

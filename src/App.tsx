@@ -275,25 +275,45 @@ const VersePage: React.FC = () => {
 
   // Handle book info navigation to verse
   const handleBookInfoNavigateToVerse = (reference: string) => {
-    // Parse reference like "Genesis 1:1" or "Gn 1:1"
-    const parts = reference.split(' ');
+    // Safety check for undefined reference
+    if (!reference || typeof reference !== 'string') {
+      console.warn('Invalid reference passed to handleBookInfoNavigateToVerse:', reference);
+      return;
+    }
+
+    // Parse reference like "Gn 1:1-31", "Ex 3:1-15", or "Gn 1:1"
+    const parts = reference.trim().split(' ');
     if (parts.length < 2) return;
     
     const bookPart = parts[0];
     const chapterVerse = parts[1];
-    const [chapterStr, verseStr] = chapterVerse.split(':');
+    
+    // Handle ranges like "1:1-31" - just take the first verse
+    const [chapterVerseStart] = chapterVerse.split('-');
+    const [chapterStr, verseStr] = chapterVerseStart.split(':');
     
     const chapter = parseInt(chapterStr, 10);
     const verse = parseInt(verseStr, 10);
     
-    if (isNaN(chapter) || isNaN(verse)) return;
+    if (isNaN(chapter) || isNaN(verse)) {
+      console.warn('Invalid chapter/verse format in reference:', reference);
+      return;
+    }
     
-    // Find the book abbreviation
-    const bookAbbr = Object.keys(BOOK_NAMES).find(
-      abbr => BOOK_NAMES[abbr].toLowerCase() === bookPart.toLowerCase() || abbr === bookPart
-    );
+    // The bookPart should already be the abbreviation (like "Gn", "Ex")
+    // but let's also check if it's a full name and convert it
+    let bookAbbr = bookPart;
+    if (!BOOK_NAMES[bookPart]) {
+      // Try to find by full name
+      bookAbbr = Object.keys(BOOK_NAMES).find(
+        abbr => BOOK_NAMES[abbr].toLowerCase() === bookPart.toLowerCase()
+      ) || bookPart;
+    }
     
-    if (!bookAbbr) return;
+    if (!BOOK_NAMES[bookAbbr]) {
+      console.warn('Unknown book abbreviation:', bookAbbr);
+      return;
+    }
     
     // Navigate to the verse
     navigate(`/${bookAbbr}/${chapter}/${verse}`);
@@ -319,7 +339,13 @@ const VersePage: React.FC = () => {
         // We have cached data, load it directly without clearing state first
         try {
           const analysisResult = JSON.parse(cachedData);
-          console.log(`Quick loading ${verseRef} from localStorage cache`);
+          // Throttle cache loading logs to reduce console noise
+          const now = Date.now();
+          const lastLogTime = sessionStorage.getItem('lastCacheLogTime');
+          if (!lastLogTime || now - parseInt(lastLogTime) > 1000) {
+            console.log(`Quick loading ${verseRef} from localStorage cache`);
+            sessionStorage.setItem('lastCacheLogTime', now.toString());
+          }
           
           // Process cached data
           const newAnalysis: VerseAnalysis = {};
@@ -433,15 +459,12 @@ const VersePage: React.FC = () => {
       const response = await fetch(url, { method: 'HEAD' }); // HEAD request to just check existence
       setAudioAvailable(response.ok);
       
-      // Don't log 404 errors to console since they're expected when audio doesn't exist
+      // Only log unexpected errors, not 404s which are normal for missing audio
       if (!response.ok && response.status !== 404) {
         console.warn(`Unexpected error checking audio availability: ${response.status}`);
       }
     } catch (error) {
-      // Only log unexpected network errors, not 404s
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        console.warn('Network error checking audio availability:', error);
-      }
+      // Suppress network errors for audio checks since backend may not be running
       setAudioAvailable(false);
     }
   }, [selectedVerse, selectedBookAbbr, currentChapter]);
@@ -897,11 +920,55 @@ const VersePage: React.FC = () => {
           }
         }
       }
+      // Word navigation with , and . keys
+      else if (event.key === ',') { // , = previous word
+        event.preventDefault();
+        if (selectedVerse) {
+          const words = (selectedVerse.macronized_text || selectedVerse.text).split(' ');
+          if (words.length > 0) {
+            const currentIndex = verseAnalysisState.selectedWordIndex;
+            console.log('Current selectedWordIndex:', currentIndex);
+            
+            let prevIndex;
+            if (currentIndex === null || currentIndex === undefined) {
+              // First time pressing comma - go to last word
+              prevIndex = words.length - 1;
+            } else {
+              // Normal navigation - go to previous word (with wraparound)
+              prevIndex = currentIndex > 0 ? currentIndex - 1 : words.length - 1;
+            }
+            
+            handleWordClick(prevIndex);
+            console.log('Navigate to previous word:', prevIndex, 'of', words.length, 'from index:', currentIndex);
+          }
+        }
+      } else if (event.key === '.') { // . = next word
+        event.preventDefault();
+        if (selectedVerse) {
+          const words = (selectedVerse.macronized_text || selectedVerse.text).split(' ');
+          if (words.length > 0) {
+            const currentIndex = verseAnalysisState.selectedWordIndex;
+            console.log('Current selectedWordIndex:', currentIndex);
+            
+            let nextIndex;
+            if (currentIndex === null || currentIndex === undefined) {
+              // First time pressing period - go to first word
+              nextIndex = 0;
+            } else {
+              // Normal navigation - go to next word (with wraparound)
+              nextIndex = (currentIndex + 1) % words.length;
+            }
+            
+            handleWordClick(nextIndex);
+            console.log('Navigate to next word:', nextIndex, 'of', words.length, 'from index:', currentIndex);
+          }
+        }
+      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedVerse, verses.length, isTransitioning, currentChapter, chapters.length, selectedBookAbbr, updateURL, navigationInProgress, audioAvailable, isPlaying, audioSource, verseAnalysisState.translations, selectedTranslationLang, setSelectedTranslationLang, books]);
+  }, [selectedVerse, verses.length, isTransitioning, currentChapter, chapters.length, selectedBookAbbr, updateURL, navigationInProgress, audioAvailable, isPlaying, audioSource, verseAnalysisState.translations, verseAnalysisState.selectedWordIndex, selectedTranslationLang, setSelectedTranslationLang, books]);
 
   // Ensure all supported translations are available
   const ensureAllTranslationsAvailable = async () => {
@@ -1416,12 +1483,17 @@ const VersePage: React.FC = () => {
     const cleanWord = word.replace(/[.,:;?!]$/, '');
     const normalized = normalizeLatin(cleanWord);
     
-    setVerseAnalysisState(prev => ({
-      ...prev,
-      selectedWord: normalized,
-      selectedWordIndex: index,
-      wordInfo: prev.analysis[normalized] || null
-    }));
+    console.log('handleWordClick called with index:', index, 'word:', word, 'normalized:', normalized);
+    
+    setVerseAnalysisState(prev => {
+      console.log('Previous selectedWordIndex:', prev.selectedWordIndex, 'Setting to:', index);
+      return {
+        ...prev,
+        selectedWord: normalized,
+        selectedWordIndex: index,
+        wordInfo: prev.analysis[normalized] || null
+      };
+    });
   };
 
   const playAudio = async (startIndex: number, autoPlay: boolean) => {
