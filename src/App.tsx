@@ -7,7 +7,8 @@ import NameOccurrencesComponent from './components/NameOccurrencesComponent';
 import AnalysisHistoryComponent from './components/AnalysisHistoryComponent';
 import QueueComponent from './components/QueueComponent';
 import WordInfoComponent from './components/WordInfoComponent';
-import { NameOccurrence, QueueItem, WordInfo, GrammarColorKey, GRAMMAR_COLORS } from './types';
+import LanguageDropdown from './components/LanguageDropdown';
+import { NameOccurrence, QueueItem, WordInfo, GrammarColorKey, GRAMMAR_COLORS, Language, LANGUAGES } from './types';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -340,19 +341,7 @@ interface NotificationType {
   type: 'success' | 'error' | 'info';
 }
 
-interface Language {
-  code: string;
-  name: string;
-  flag: string;
-}
 
-const LANGUAGES: Language[] = [
-  { code: "en", name: "English", flag: "🇺🇸" },
-  { code: "fr", name: "French", flag: "🇫🇷" },
-  { code: "es", name: "Spanish", flag: "🇪🇸" },
-  { code: "pt", name: "Portuguese", flag: "🇵🇹" },
-  { code: "it", name: "Italian", flag: "🇮🇹" }
-];
 
 
 
@@ -3458,63 +3447,4 @@ function getHighlightTextForWordType(partOfSpeech: string) {
   }
 }
 
-// Enhanced Language Dropdown with clear translation type indicators
-const LanguageDropdown: React.FC<{
-  languages: string[];
-  selectedLang: string;
-  setSelectedLang: (lang: string) => void;
-  translations?: { [key: string]: string };
-}> = ({ languages, selectedLang, setSelectedLang, translations = {} }) => {
-  const [isOpen, setIsOpen] = useState(false);
 
-  const toggleDropdown = () => setIsOpen(!isOpen);
-  const handleSelect = (lang: string) => {
-    setSelectedLang(lang);
-    setIsOpen(false);
-  };
-
-  const languageName = LANGUAGES.find(l => l.code === selectedLang)?.name || selectedLang.toUpperCase();
-  const languageFlag = LANGUAGES.find(l => l.code === selectedLang)?.flag || '🌐';
-
-  return (
-    <div className="relative inline-block text-left">
-      <button
-        onClick={toggleDropdown}
-        className="px-4 py-2 bg-white hover:bg-gray-50 text-black font-black border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] flex items-center gap-2 transition-all duration-200"
-      >
-        <span className="text-lg">{languageFlag}</span>
-        <span className="font-black text-black">{languageName}</span>
-        <FontAwesomeIcon icon={faChevronDown} className="ml-1 text-gray-600" />
-      </button>
-      {isOpen && (
-        <div className="origin-top-right absolute z-50 mt-2 w-48 bg-white border-4 border-black rounded-none shadow-lg">
-          {languages.map(lang => {
-            const langName = LANGUAGES.find(l => l.code === lang)?.name || lang.toUpperCase();
-            const langFlag = LANGUAGES.find(l => l.code === lang)?.flag || '🌐';
-            
-            return (
-              <button
-                key={lang}
-                onClick={() => handleSelect(lang)}
-                className={`block w-full text-left px-4 py-3 hover:bg-gray-100 transition-colors duration-200 flex items-center gap-3 ${
-                  selectedLang === lang ? 'bg-gray-50 border-l-4 border-blue-500' : ''
-                }`}
-              >
-                <span className="text-lg">{langFlag}</span>
-                <div className="flex-1">
-                  <div className="font-bold text-black">{langName}</div>
-                </div>
-                {selectedLang === lang && (
-                  <div className="flex items-center gap-1">
-                    <FontAwesomeIcon icon={faGem} className="text-yellow-600" />
-                    <span className="text-xs font-bold text-blue-600">ACTIVE</span>
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-};

@@ -76,6 +76,20 @@ export const GRAMMAR_COLORS: Record<GrammarColorKey, string> = {
   'default': 'bg-gray-100 text-gray-800 border-gray-300'
 };
 
+export interface Language {
+  code: string;
+  name: string;
+  flag: string;
+}
+
+export const LANGUAGES: Language[] = [
+  { code: "en", name: "English", flag: "🇺🇸" },
+  { code: "fr", name: "French", flag: "🇫🇷" },
+  { code: "es", name: "Spanish", flag: "🇪🇸" },
+  { code: "pt", name: "Portuguese", flag: "🇵🇹" },
+  { code: "it", name: "Italian", flag: "🇮🇹" }
+];
+
 // Book names mapping
 export const BOOK_NAMES: { [key: string]: string } = {
   "Gn": "Genesis",
