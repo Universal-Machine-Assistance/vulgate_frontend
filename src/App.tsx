@@ -14,6 +14,8 @@ import ChapterDropdown from './components/ChapterDropdown';
 import GlobalEditComponent from './components/GlobalEditComponent';
 import InterpretationLayersComponent from './components/InterpretationLayersComponent';
 import AnimatedWrapper from './components/AnimatedWrapper';
+import VerseDisplayComponent from './components/VerseDisplayComponent';
+import GrammarBreakdownComponent from './components/GrammarBreakdownComponent';
 import { NameOccurrence, QueueItem, WordInfo, GrammarColorKey, GRAMMAR_COLORS, Language, LANGUAGES, Book, BOOK_ICONS, getBookCategoryColor, Verse } from './types';
 import { 
   getIconForWordType, 
@@ -2194,340 +2196,70 @@ const VersePage: React.FC = () => {
       {/* Main layout - single column for verse, then 2 columns for analysis */}
       <div className="flex flex-col gap-8 w-full max-w-[1400px] mx-auto">
         {/* Verse section - full width at top */}
-        <div className="bg-white border-4 border-black rounded-2xl shadow-lg shadow-gray-200/40 p-6 w-full">
-          {/* Verse navigation/selector */}
-          <div className="bg-white border-4 border-black rounded-xl shadow-2xl shadow-gray-400/50 p-4 w-full flex flex-wrap gap-4 justify-center items-center mb-6">
-            <button
-              onClick={navigateToPreviousVerse}
-              disabled={!selectedVerse || (selectedVerse.verse_number <= 1 && currentChapter <= 1) || isTransitioning || navigationInProgress}
-              className="w-12 h-12 text-lg font-black text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-30 transition-all duration-200 rounded-full shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 flex items-center justify-center"
-              title="Previous verse (← arrow key) - crosses chapters"
-            >
-              <FontAwesomeIcon icon={faArrowLeft} />
-            </button>
-            <BookDropdown 
-              books={books} 
-              selectedBookAbbr={selectedBookAbbr} 
-              setSelectedBookAbbr={setSelectedBookAbbr}
-              onBookChange={(book, chapter, verse) => {
-                updateURL(book, chapter, verse);
-              }}
-            />
-            <ChapterDropdown 
-              chapters={chapters} 
-              currentChapter={currentChapter} 
-              setCurrentChapter={setCurrentChapter}
-              onChapterChange={(chapter) => {
-                updateURL(selectedBookAbbr, chapter, 1);
-              }}
-            />
-            <VerseDropdown verses={verses} selectedVerseNumber={selectedVerse?.verse_number || 1} handleVerseChange={handleVerseChange} />
-            {/* Language dropdown shows when translations available */}
-            <AnimatedWrapper 
-              show={verseAnalysisState.translations && Object.keys(verseAnalysisState.translations).length > 0}
-              enterClass="smooth-entrance"
-              exitClass="smooth-exit"
-            >
-              <LanguageDropdown
-                languages={Object.keys(verseAnalysisState.translations || {})}
-                selectedLang={selectedTranslationLang}
-                setSelectedLang={setSelectedTranslationLang}
-                translations={verseAnalysisState.translations || {}}
-              />
-            </AnimatedWrapper>
-            <button
-              onClick={navigateToNextVerse}
-              disabled={!selectedVerse || (selectedVerse.verse_number >= verses.length && currentChapter >= chapters.length) || isTransitioning || navigationInProgress}
-              className="w-12 h-12 text-lg font-black text-white bg-purple-500 hover:bg-purple-600 disabled:opacity-30 transition-all duration-200 rounded-full shadow-lg hover:shadow-xl hover:scale-110 active:scale-95 flex items-center justify-center"
-              title="Next verse (→ arrow key) - crosses chapters"
-            >
-              <FontAwesomeIcon icon={faArrowRight} />
-            </button>
-          </div>
-
-          {/* Verse and translation */}
-          <div className="w-full">
-            <div className="font-bold text-lg mb-2 flex items-center gap-2 justify-center">
-              <button
-                onClick={() => setIsBookInfoOpen(true)}
-                className="text-purple-600 hover:text-purple-800 hover:scale-110 transition-all duration-200 p-1 rounded"
-                title="Informatio Libri - Click for book information"
-              >
-                <FontAwesomeIcon icon={faBook} />
-              </button>
-              {BOOK_NAMES[selectedBookAbbr] || selectedBookAbbr} {currentChapter}:{selectedVerse?.verse_number}
-              {/* Navigation state indicator */}
-              {navigationInProgress && (
-                <span className="text-sm text-blue-600 animate-pulse ml-2">
-                  ⏳ Navigating...
-                </span>
-              )}
-              {/* Sync verification */}
-              {selectedVerse && location.pathname !== `/${selectedBookAbbr}/${currentChapter}/${selectedVerse.verse_number}` && !navigationInProgress && (
-                <span className="text-sm text-red-600 ml-2" title="Verse may be out of sync">
-                  ⚠️ Syncing...
-                </span>
-              )}
-            </div>
-            <div className="verse-container min-h-[120px] flex items-center justify-center px-4 py-2 bg-white rounded-2xl shadow-lg shadow-gray-200/40 border border-gray-100">
-              {selectedVerse && (
-                <div className={`verse-content ${verseAnimation !== 'none' ? verseAnimation : ''}`}>
-                  <p className="text-xl font-bold text-center break-words whitespace-pre-line w-full max-w-full text-black leading-relaxed">
-                  {selectedVerse?.text.split(' ').map((word, index) => {
-                  const cleanWord = word.replace(/[.,:;?!]$/, '');
-                  const normalized = normalizeLatin(cleanWord);
-                  const wordInfo = verseAnalysisState.analysis[normalized];
-                  const partOfSpeech = (wordInfo?.partOfSpeech?.toLowerCase() || 'unknown') as GrammarColorKey;
-                  const isSelected = verseAnalysisState.selectedWord === normalized;
-                  const isHovered = verseAnalysisState.hoveredWord === normalized;
-                  const isClickSelected = verseAnalysisState.selectedWordIndex === index;
-                  const isCurrentlyPlaying = currentlyPlayingWordIndex === index;
-                  
-                  // Analysis completed animation class
-                  const analysisCompleteClass = verseAnalysisState.isAnalysisDone ? 'analysis-complete' : '';
-                  
-                  let className = `mx-1 break-words inline-block font-black cursor-pointer transition-all duration-500 ${analysisCompleteClass} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 focus:bg-blue-50`;
-                  let style: React.CSSProperties = {
-                    transformOrigin: 'center',
-                    willChange: 'transform',
-                    padding: '0.15em 0.2em',
-                    margin: '0 0.1em'
-                  };
-                  
-                  // Show highlights only if analysis is done and interaction is happening
-                  if (verseAnalysisState.isAnalysisDone && (isSelected || isHovered || isClickSelected || isCurrentlyPlaying)) {
-                    const colorClass = GRAMMAR_COLORS[partOfSpeech] || GRAMMAR_COLORS.default;
-                    const colors = getColorsFromGrammarClass(colorClass);
-                    
-                    style.backgroundColor = colors.bg;
-                    style.color = colors.text;
-                    
-                    style.borderRadius = '0.5rem';
-                    style.padding = '0.15em 0.4em';
-                    style.position = 'relative';
-                    style.zIndex = 1;
-                    style.border = 'none';
-                    
-                    if (isSelected) {
-                      style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.5)';
-                    }
-                    if (isHovered) {
-                      style.transform = 'scale(1.05)';
-                      style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-                    }
-                    if (isCurrentlyPlaying) {
-                      // Keep the grammar-based background color but add playing effects
-                      style.transform = 'scale(1.1)';
-                      style.boxShadow = '0 0 0 4px rgba(251, 191, 36, 0.8), 0 8px 16px rgba(0, 0, 0, 0.2)'; 
-                      style.fontWeight = '900';
-                      style.animation = 'pulse 0.5s ease-in-out';
-                      // Add a subtle golden border to indicate it's currently playing
-                      style.border = '2px solid #fbbf24';
-                    }
-                  } else {
-                    // Default black text - no highlighting until analysis completes
-                    className += 'text-black hover:bg-gray-100 hover:rounded hover:shadow-sm ';
-                    style.border = 'none';
-                    style.background = 'transparent';
-                  }
-                  
-                  return (
-                    <button
-                      key={index}
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleWordClick(index);
-                        handleGrammarWordClick(cleanWord);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          handleWordClick(index);
-                          handleGrammarWordClick(cleanWord);
-                        }
-                      }}
-                      onMouseEnter={() => handleWordHover(cleanWord)}
-                      onMouseLeave={() => handleWordHover(null)}
-                      className={className}
-                      style={{
-                        ...style,
-                        border: 'none',
-                        background: style.backgroundColor || 'transparent',
-                        fontFamily: 'inherit',
-                        fontSize: 'inherit',
-                        fontWeight: 'inherit',
-                        textDecoration: 'none',
-                        outline: 'none'
-                      }}
-                      title={wordInfo ? `${wordInfo.partOfSpeech}: ${wordInfo.definition}` : 'Click for definition'}
-                      tabIndex={0}
-                      role="button"
-                      aria-label={`Word: ${cleanWord}${wordInfo ? ` - ${wordInfo.partOfSpeech}: ${wordInfo.definition}` : ''}`}
-                    >
-                      {word}
-                    </button>
-                  );
-                })}
-                  </p>
-                </div>
-              )}
-            </div>
-            
-            {/* Loading indicator below verse */}
-            {isVerseLoading && !verseAnalysisState.isAnalysisDone && (
-              <div className="flex items-center justify-center gap-2 mt-4 text-gray-600">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-                <span className="text-sm">Analyzing verse...</span>
-              </div>
-            )}
-            
-            {/* Simplified Translation Display */}
-            <AnimatedWrapper 
-              show={!isVerseLoading && verseAnalysisState.translations && Object.keys(verseAnalysisState.translations).length > 0}
-              enterClass="smooth-entrance-up"
-              exitClass="smooth-exit-down"
-            >
-              <div className="mt-4 border-t border-gray-200 pt-3">
-                {(() => {
-                  const currentTranslation = verseAnalysisState.translations?.[selectedTranslationLang] || '';
-                  
-                  return (
-                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                      <div className="text-gray-800 leading-relaxed text-sm">
-                        {renderMarkdown(currentTranslation)}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            </AnimatedWrapper>
-          </div>
-
-          {/* Play/Pause and Record buttons */}
-          <div className="flex gap-4 justify-center mt-4 flex-wrap">
-            {audioAvailable && (
-              <button
-                className={`p-3 rounded-full ${isPlaying ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600'} text-white shadow transition-all duration-200`}
-                title={isPlaying ? 'Pause audio (P key)' : 'Play audio with word highlighting (P key)'}
-                onClick={() => {
-                  if (isPlaying) {
-                    if (audioSource) audioSource.stop();
-                    setIsPlaying(false);
-                    setAudioSource(null);
-                    setCurrentlyPlayingWordIndex(null);
-                  } else {
-                    playAudioWithWordHighlighting();
-                  }
-                }}
-                disabled={!selectedVerse}
-              >
-                <FontAwesomeIcon icon={isPlaying ? faPause : faPlay} />
-              </button>
-            )}
-            <button
-              className={`p-3 rounded-full ${isRecording ? 'bg-red-500 hover:bg-red-600 animate-pulse' : 'bg-pink-500 hover:bg-pink-600'} text-white shadow transition-all duration-200 hover:scale-130`}
-              title={isRecording ? 'Stop recording (R key)' : 'Start recording (R key)'}
-              onClick={handleRecordClick}
-              disabled={!selectedVerse}
-            >
-              <FontAwesomeIcon icon={isRecording ? faStop : faMicrophone} />
-            </button>
-            {/* Manual upload button - appears when there's a recording but upload failed or didn't happen */}
-            {recording && !isUploading && !uploadSuccess && !audioAvailable && (
-              <button
-                className="p-3 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow transition-colors duration-200"
-                title="Upload recording"
-                onClick={() => uploadRecording(recording)}
-                disabled={!selectedVerse}
-              >
-                <FontAwesomeIcon icon={faUpload} />
-              </button>
-            )}
-            {/* Enhanced OpenAI Analysis button with floating translation icon */}
-            <div className="relative floating-translation-container">
-              <button
-                className={`p-3 rounded-full border-2 border-black ${
-                  isOpenAIAnalyzing ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700'
-                } text-white shadow transition-all duration-200 hover:scale-130`}
-                title="Enhance analysis with Greb AI (G key) | Hover to show translation generator"
-                onClick={handleEnhanceClick}
-                onMouseEnter={() => {
-                  if (hoverTimeoutId) {
-                    clearTimeout(hoverTimeoutId);
-                    setHoverTimeoutId(null);
-                  }
-                  setBrainButtonHovered(true);
-                }}
-                onMouseLeave={() => {
-                  const timeoutId = setTimeout(() => {
-                    setBrainButtonHovered(false);
-                  }, 1500); // 1.5 second delay
-                  setHoverTimeoutId(timeoutId);
-                }}
-                disabled={!selectedVerse || isOpenAIAnalyzing}
-              >
-                {isOpenAIAnalyzing ? (
-                  <FontAwesomeIcon icon={faSpinner} spin />
-                ) : (
-                  <FontAwesomeIcon icon={faBrain} />
-                )}
-              </button>
-              
-              {/* Floating Translation Icon - shows on hover */}
-              {(showFloatingTranslation || brainButtonHovered) && (
-                <div 
-                  className="absolute -top-9 -right-2 z-50"
-                  onMouseEnter={() => {
-                    if (hoverTimeoutId) {
-                      clearTimeout(hoverTimeoutId);
-                      setHoverTimeoutId(null);
-                    }
-                    setBrainButtonHovered(true);
-                  }}
-                  onMouseLeave={() => {
-                    const timeoutId = setTimeout(() => {
-                      setBrainButtonHovered(false);
-                    }, 1500); // 1.5 second delay
-                    setHoverTimeoutId(timeoutId);
-                  }}
-                >
-                  <button
-                    onClick={handleForceTranslations}
-                    disabled={isGeneratingTranslations}
-                    className={`w-8 h-8 rounded-full border-2 border-black shadow-lg transform transition-all duration-300 ease-out ${
-                      isGeneratingTranslations 
-                        ? 'bg-gradient-to-r from-yellow-400 to-orange-400 cursor-not-allowed' 
-                        : 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 hover:scale-110 animate-bounce'
-                    } text-white flex items-center justify-center relative overflow-hidden`}
-                    style={{
-                      animation: (showFloatingTranslation || brainButtonHovered)
-                        ? 'floatingTranslationPop 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)' 
-                        : undefined
-                    }}
-                    title="Force generate all translations"
-                  >
-                    {isGeneratingTranslations ? (
-                      <div className="relative">
-                        <FontAwesomeIcon icon={faSpinner} spin className="text-xs" />
-                        <LanguageCycleIndicator />
-                      </div>
-                    ) : (
-                      <FontAwesomeIcon icon={faLanguage} className="text-xs" />
-                    )}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+        <VerseDisplayComponent
+          // Navigation props
+          selectedBookAbbr={selectedBookAbbr}
+          setSelectedBookAbbr={setSelectedBookAbbr}
+          currentChapter={currentChapter}
+          setCurrentChapter={setCurrentChapter}
+          selectedVerse={selectedVerse}
+          books={books}
+          chapters={chapters}
+          verses={verses}
+          navigationInProgress={navigationInProgress}
+          isTransitioning={isTransitioning}
           
-          {/* Recording status */}
-          {uploadStatus && (
-            <div className="mt-2 text-center">
-              {uploadStatus}
-            </div>
-          )}
-        </div>
+          // Verse analysis state
+          verseAnalysisState={verseAnalysisState}
+          
+          // Translation props
+          selectedTranslationLang={selectedTranslationLang}
+          setSelectedTranslationLang={setSelectedTranslationLang}
+          
+          // Audio props
+          audioAvailable={audioAvailable}
+          isPlaying={isPlaying}
+          audioSource={audioSource}
+          setIsPlaying={setIsPlaying}
+          setAudioSource={setAudioSource}
+          currentlyPlayingWordIndex={currentlyPlayingWordIndex}
+          
+          // Recording props
+          isRecording={isRecording}
+          recording={recording}
+          isUploading={isUploading}
+          uploadSuccess={uploadSuccess}
+          uploadStatus={uploadStatus}
+          
+          // AI Analysis props
+          isOpenAIAnalyzing={isOpenAIAnalyzing}
+          brainButtonHovered={brainButtonHovered}
+          setBrainButtonHovered={setBrainButtonHovered}
+          hoverTimeoutId={hoverTimeoutId}
+          setHoverTimeoutId={setHoverTimeoutId}
+          showFloatingTranslation={showFloatingTranslation}
+          isGeneratingTranslations={isGeneratingTranslations}
+          
+          // Animation props
+          verseAnimation={verseAnimation}
+          
+          // Event handlers
+          navigateToPreviousVerse={navigateToPreviousVerse}
+          navigateToNextVerse={navigateToNextVerse}
+          updateURL={updateURL}
+          handleVerseChange={handleVerseChange}
+          setIsBookInfoOpen={setIsBookInfoOpen}
+          handleWordClick={handleWordClick}
+          handleGrammarWordClick={handleGrammarWordClick}
+          playAudioWithWordHighlighting={playAudioWithWordHighlighting}
+          handleRecordClick={handleRecordClick}
+          uploadRecording={uploadRecording}
+          handleEnhanceClick={handleEnhanceClick}
+          handleForceTranslations={handleForceTranslations}
+          
+          // Location object
+          location={location}
+        />
 
         {/* Analysis and editing section */}
         <div className="flex gap-8 flex-wrap">
@@ -2594,71 +2326,11 @@ const VersePage: React.FC = () => {
               </h3>
               <div className="space-y-4">
                 {/* Grammar breakdown display */}
-                <div className="bg-gray-50 border-2 border-gray-300 rounded-lg p-4">
-                  <h4 className="text-md font-bold mb-2 text-gray-700">
-                    <FontAwesomeIcon icon={faBook} className="mr-2" />
-                    Grammar Breakdown
-                  </h4>
-                  
-                  {/* Grammar Legend */}
-                  <div className="mb-3 p-3 bg-white border border-gray-200 rounded">
-                    <h5 className="text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Legenda Grammatica (Grammar Legend)</h5>
-                    <div className="grid grid-cols-2 gap-1 text-xs">
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded bg-blue-100 border border-blue-300"></div>
-                        <span className="text-blue-800 font-medium">Verbum</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded bg-green-100 border border-green-300"></div>
-                        <span className="text-green-800 font-medium">Nomen</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded bg-purple-100 border border-purple-300"></div>
-                        <span className="text-purple-800 font-medium">Adiectivum</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded bg-orange-100 border border-orange-300"></div>
-                        <span className="text-orange-800 font-medium">Adverbium</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded bg-red-100 border border-red-300"></div>
-                        <span className="text-red-800 font-medium">Pronomen</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded bg-gray-100 border border-gray-300"></div>
-                        <span className="text-gray-800 font-medium">Praepositio</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded bg-pink-100 border border-pink-300"></div>
-                        <span className="text-pink-800 font-medium">Coniunctio</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded bg-indigo-100 border border-indigo-300"></div>
-                        <span className="text-indigo-800 font-medium">Participium</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    {verseAnalysisState.grammarBreakdown.map((item, index) => {
-                      const posKey = (item.part_of_speech?.toLowerCase() || 'default') as GrammarColorKey;
-                      const colorClass = GRAMMAR_COLORS[posKey] || GRAMMAR_COLORS.default;
-                      return (
-                        <button
-                          key={index}
-                          className={`w-full flex justify-between items-center p-2 rounded border cursor-pointer transition-transform duration-150 hover:scale-[1.02] ${colorClass}`}
-                          onClick={() => {
-                            handleWordClick(index);
-                            handleGrammarWordClick(item.word);
-                          }}
-                        >
-                          <span className="font-bold">{item.word}</span>
-                          <span className="text-xs uppercase">{item.part_of_speech}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                <GrammarBreakdownComponent
+                  grammarBreakdown={verseAnalysisState.grammarBreakdown}
+                  onWordClick={handleWordClick}
+                  onGrammarWordClick={handleGrammarWordClick}
+                />
               </div>
             </div>
           </div>
