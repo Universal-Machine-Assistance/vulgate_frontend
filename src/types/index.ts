@@ -49,6 +49,33 @@ export interface QueueItem {
   updated_at: string;
 }
 
+export interface WordInfo {
+  latin: string;
+  definition: string;
+  etymology: string;
+  partOfSpeech: string;
+  morphology?: string;
+  pronunciation?: string;
+  source?: string;
+  confidence?: number;
+  found?: boolean;
+  isName?: boolean;
+}
+
+export type GrammarColorKey = 'verb' | 'noun' | 'adjective' | 'adverb' | 'preposition' | 'conjunction' | 'pronoun' | 'participle' | 'default';
+
+export const GRAMMAR_COLORS: Record<GrammarColorKey, string> = {
+  'verb': 'bg-blue-100 text-blue-800 border-blue-300',
+  'noun': 'bg-green-100 text-green-800 border-green-300',
+  'adjective': 'bg-purple-100 text-purple-800 border-purple-300', 
+  'adverb': 'bg-orange-100 text-orange-800 border-orange-300',
+  'preposition': 'bg-gray-100 text-gray-800 border-gray-300',
+  'conjunction': 'bg-pink-100 text-pink-800 border-pink-300',
+  'pronoun': 'bg-red-100 text-red-800 border-red-300',
+  'participle': 'bg-indigo-100 text-indigo-800 border-indigo-300',
+  'default': 'bg-gray-100 text-gray-800 border-gray-300'
+};
+
 // Book names mapping
 export const BOOK_NAMES: { [key: string]: string } = {
   "Gn": "Genesis",

@@ -6,7 +6,8 @@ import WordVerseRelationships from './components/WordVerseRelationships';
 import NameOccurrencesComponent from './components/NameOccurrencesComponent';
 import AnalysisHistoryComponent from './components/AnalysisHistoryComponent';
 import QueueComponent from './components/QueueComponent';
-import { NameOccurrence, QueueItem } from './types';
+import WordInfoComponent from './components/WordInfoComponent';
+import { NameOccurrence, QueueItem, WordInfo, GrammarColorKey, GRAMMAR_COLORS } from './types';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -332,18 +333,7 @@ interface GrammarItem {
   morphology?: string;
 }
 
-interface WordInfo {
-  latin: string;
-  definition: string;
-  etymology: string;
-  partOfSpeech: string;
-  morphology?: string;
-  pronunciation?: string;
-  source?: string;
-  confidence?: number;
-  found?: boolean;
-  isName?: boolean;
-}
+
 
 interface NotificationType {
   message: string;
@@ -364,20 +354,7 @@ const LANGUAGES: Language[] = [
   { code: "it", name: "Italian", flag: "🇮🇹" }
 ];
 
-// Update the GRAMMAR_COLORS constant with proper typing
-type GrammarColorKey = 'verb' | 'noun' | 'adjective' | 'adverb' | 'preposition' | 'conjunction' | 'pronoun' | 'participle' | 'default';
 
-const GRAMMAR_COLORS: Record<GrammarColorKey, string> = {
-  'verb': 'bg-blue-100 text-blue-800 border-blue-300',
-  'noun': 'bg-green-100 text-green-800 border-green-300',
-  'adjective': 'bg-purple-100 text-purple-800 border-purple-300', 
-  'adverb': 'bg-orange-100 text-orange-800 border-orange-300',
-  'preposition': 'bg-gray-100 text-gray-800 border-gray-300',
-  'conjunction': 'bg-pink-100 text-pink-800 border-pink-300',
-  'pronoun': 'bg-red-100 text-red-800 border-red-300',
-  'participle': 'bg-indigo-100 text-indigo-800 border-indigo-300',
-  'default': 'bg-gray-100 text-gray-800 border-gray-300'
-};
 
 // Enhanced markdown renderer with translation type styling
 const renderMarkdown = (text: string): JSX.Element => {
@@ -732,89 +709,7 @@ interface VerseAnalysisState {
 // Types for verse relationships
 
 
-// WordInfo Component - Simplified without buttons
-const WordInfoComponent: React.FC<{ 
-  wordInfo: WordInfo | null; 
-  className?: string;
-  onClose?: () => void;
-  isPopup?: boolean;
-  onNavigateToVerse?: (reference: string) => void;
-}> = ({ wordInfo, className = "", onClose, isPopup = false, onNavigateToVerse }) => {
-  const [isVisible, setIsVisible] = React.useState(false);
-  const [currentWordInfo, setCurrentWordInfo] = React.useState(wordInfo);
 
-  // Smooth transition effect when wordInfo changes
-  React.useEffect(() => {
-    if (wordInfo !== currentWordInfo) {
-      setIsVisible(false);
-      const timer = setTimeout(() => {
-        setCurrentWordInfo(wordInfo);
-        setIsVisible(!!wordInfo); // Only show if wordInfo exists
-      }, 150); // Half of the transition duration
-      
-      return () => clearTimeout(timer);
-    } else if (wordInfo) {
-      setIsVisible(true);
-    } else {
-      setIsVisible(false);
-    }
-  }, [wordInfo, currentWordInfo]);
-
-  if (!currentWordInfo) return null;
-
-  // Get grammar color based on part of speech
-  const getGrammarColorClasses = (partOfSpeech: string) => {
-    const posKey = (partOfSpeech?.toLowerCase() || 'default') as GrammarColorKey;
-    return GRAMMAR_COLORS[posKey] || GRAMMAR_COLORS.default;
-  };
-
-  const grammarColorClasses = getGrammarColorClasses(currentWordInfo.partOfSpeech);
-
-  // Grammar-based styling with neubrutalist design
-  const containerClasses = isPopup 
-    ? `${grammarColorClasses} border-4 border-black rounded-none p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transform transition-all duration-300 ease-in-out` 
-    : `${grammarColorClasses} border-4 border-black rounded-none p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-300 ease-in-out transform`;
-
-  return (
-    <div className={`${containerClasses} ${
-      isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-    } ${className}`}>
-      {isPopup && onClose && (
-        <button 
-          onClick={onClose}
-          className="float-right text-black hover:text-red-600 text-xl font-bold transition-colors duration-200 border-2 border-black w-8 h-8 flex items-center justify-center bg-red-200 hover:bg-red-300 rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-        >
-          ×
-        </button>
-      )}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-black text-black flex items-center gap-2 transition-all duration-300 uppercase tracking-wide">
-            <FontAwesomeIcon icon={faBook} className="text-black" />
-            {currentWordInfo.latin}
-          </h3>
-        </div>
-        <div className="text-sm space-y-2">
-          <p className="transition-all duration-300"><strong className="text-black font-black uppercase">Definition:</strong> <span className="font-medium">{currentWordInfo.definition}</span></p>
-          <p className="transition-all duration-300"><strong className="text-black font-black uppercase">Part of Speech:</strong> <span className="font-medium">{currentWordInfo.partOfSpeech}</span></p>
-          {currentWordInfo.morphology && (
-            <p className="transition-all duration-300"><strong className="text-black font-black uppercase">Morphology:</strong> <span className="font-medium">{currentWordInfo.morphology}</span></p>
-          )}
-          {currentWordInfo.pronunciation && (
-            <p className="transition-all duration-300"><strong className="text-black font-black uppercase">Pronunciation:</strong> <span className="font-mono">/{currentWordInfo.pronunciation}/</span></p>
-          )}
-          <p className="transition-all duration-300"><strong className="text-black font-black uppercase">Etymology:</strong> <span className="font-medium">{currentWordInfo.etymology}</span></p>
-        </div>
-        
-        {/* Add verse relationships section */}
-        <WordVerseRelationships 
-          word={currentWordInfo.latin} 
-          onNavigateToVerse={onNavigateToVerse}
-        />
-      </div>
-    </div>
-  );
-};
 
 // Custom Dropdown for Book Selector
 const BookDropdown: React.FC<{
