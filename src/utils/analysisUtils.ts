@@ -14,7 +14,7 @@ export interface AnalysisUtils {
 export const createAnalysisUtils = (
   selectedBookAbbr: string,
   currentChapter: number,
-  selectedVerse: { verse_number: number; text: string } | null,
+  selectedVerse: { verse_number: number; text: string; macronized_text?: string } | null,
   setVerseAnalysisState: (updater: (prev: VerseAnalysisState) => VerseAnalysisState) => void,
   setTheologicalInterpretation: (interpretation: string) => void,
   setIsOpenAIAnalyzing: (analyzing: boolean) => void,
@@ -134,7 +134,7 @@ export const createAnalysisUtils = (
           book: selectedBookAbbr,
           chapter: currentChapter,
           verse: selectedVerse.verse_number,
-          text: selectedVerse.text
+          text: selectedVerse.macronized_text || selectedVerse.text
         }),
       });
 
@@ -222,7 +222,7 @@ export const createAnalysisUtils = (
           book: selectedBookAbbr,
           chapter: currentChapter,
           verse: selectedVerse.verse_number,
-          text: selectedVerse.text,
+          text: selectedVerse.macronized_text || selectedVerse.text,
           languages: missingLanguages
         }),
       });
@@ -254,7 +254,7 @@ export const createAnalysisUtils = (
           book: selectedBookAbbr,
           chapter: currentChapter,
           verse: selectedVerse.verse_number,
-          text: selectedVerse.text,
+          text: selectedVerse.macronized_text || selectedVerse.text,
           target_language: language
         }),
       });

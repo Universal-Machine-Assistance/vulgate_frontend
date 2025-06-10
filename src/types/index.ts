@@ -110,6 +110,7 @@ export interface Book {
 export interface Verse {
   verse_number: number;
   text: string;
+  macronized_text?: string;
 }
 
 export const BOOK_ICONS: { [key: string]: any } = {

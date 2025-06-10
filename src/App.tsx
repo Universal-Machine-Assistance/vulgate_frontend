@@ -926,7 +926,7 @@ const VersePage: React.FC = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            verse: selectedVerse.text, 
+            verse: selectedVerse.macronized_text || selectedVerse.text, 
             language: language,
             include_both_types: true
           })
@@ -1021,7 +1021,7 @@ const VersePage: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          verse: selectedVerse.text, 
+          verse: selectedVerse.macronized_text || selectedVerse.text, 
           reference: verseRef,
           include_translations: true // Request translations with analysis
         })
@@ -1143,7 +1143,7 @@ const VersePage: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          verse: selectedVerse.text, 
+          verse: selectedVerse.macronized_text || selectedVerse.text, 
           language: language,
           include_both_types: true // Request both literal and dynamic translations
         })
@@ -1411,7 +1411,7 @@ const VersePage: React.FC = () => {
 
   const handleWordClick = (index: number) => {
     if (!selectedVerse) return;
-    const words = selectedVerse.text.split(' ');
+    const words = (selectedVerse.macronized_text || selectedVerse.text).split(' ');
     const word = words[index];
     const cleanWord = word.replace(/[.,:;?!]$/, '');
     const normalized = normalizeLatin(cleanWord);
@@ -1483,7 +1483,7 @@ const VersePage: React.FC = () => {
       setIsPlaying(true);
       
       // Word highlighting logic
-      const words = selectedVerse.text.split(' ');
+      const words = (selectedVerse.macronized_text || selectedVerse.text).split(' ');
       const totalDuration = audioBuffer.duration;
       const wordDuration = totalDuration / words.length;
       
@@ -1545,7 +1545,7 @@ const VersePage: React.FC = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          verse: selectedVerse.text,
+          verse: selectedVerse.macronized_text || selectedVerse.text,
           reference: `${selectedBookAbbr} ${currentChapter}:${selectedVerse.verse_number}`,
           include_translations: true,
           include_theological: true

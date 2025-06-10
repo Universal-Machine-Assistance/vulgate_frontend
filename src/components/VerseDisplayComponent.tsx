@@ -260,7 +260,7 @@ const VerseDisplayComponent: React.FC<VerseDisplayComponentProps> = ({
           {selectedVerse && (
             <div className={`verse-content ${verseAnimation !== 'none' ? verseAnimation : ''}`}>
               <p className="text-xl font-bold text-center break-words whitespace-pre-line w-full max-w-full text-black leading-relaxed">
-                {selectedVerse?.text.split(' ').map((word, index) => {
+                {(selectedVerse?.macronized_text || selectedVerse?.text)?.split(' ').map((word, index) => {
                   const cleanWord = word.replace(/[.,:;?!]$/, '');
                   const normalized = normalizeLatin(cleanWord);
                   const wordInfo = verseAnalysisState.analysis[normalized];
