@@ -248,12 +248,7 @@ const VerseDisplayComponent: React.FC<VerseDisplayComponentProps> = ({
             <FontAwesomeIcon icon={faBook} />
           </button>
           {BOOK_NAMES[selectedBookAbbr] || selectedBookAbbr} {currentChapter}:{selectedVerse?.verse_number}
-          {/* Navigation state indicator */}
-          {navigationInProgress && (
-            <span className="text-sm text-blue-600 animate-pulse ml-2">
-              ⏳ Navigating...
-            </span>
-          )}
+
           {/* Sync verification */}
           {selectedVerse && location.pathname !== `/${selectedBookAbbr}/${currentChapter}/${selectedVerse.verse_number}` && !navigationInProgress && (
             <span className="text-sm text-red-600 ml-2" title="Verse may be out of sync">
@@ -359,18 +354,18 @@ const VerseDisplayComponent: React.FC<VerseDisplayComponentProps> = ({
           enterClass="smooth-entrance"
           exitClass="smooth-exit"
         >
-          <div className="mt-4 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg shadow-sm">
+          <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
             {(() => {
               const translationText = verseAnalysisState.translations?.[selectedTranslationLang];
               if (!translationText) return null;
               
               return (
                 <div className="text-center">
-                  <div className="text-sm text-blue-600 font-medium mb-2 flex items-center justify-center gap-2">
-                    <FontAwesomeIcon icon={faLanguage} />
+                  <div className="text-xs text-blue-600 font-medium mb-1 flex items-center justify-center gap-1">
+                    <FontAwesomeIcon icon={faLanguage} className="text-xs" />
                     <span className="uppercase tracking-wide">{selectedTranslationLang}</span>
                   </div>
-                  <p className="text-lg text-blue-800 leading-relaxed font-medium italic">
+                  <p className="text-sm text-blue-800 leading-snug font-medium italic">
                     {renderMarkdown(translationText)}
                   </p>
                 </div>

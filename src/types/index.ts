@@ -262,6 +262,20 @@ export interface GrammarItem {
   morphology?: string;
 }
 
+export interface NotificationType {
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
+
+export interface EditState {
+  isEditing: boolean;
+  editingWord: string | null;
+  editMeaning: string;
+  editGrammarDescription: string;
+  editPartOfSpeech: string;
+  editMorphology: string;
+}
+
 export interface VerseAnalysisState {
   analysis: VerseAnalysis;
   grammarBreakdown: GrammarItem[];
