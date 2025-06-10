@@ -492,3 +492,69 @@
   z-index: 10;
   pointer-events: none;
 }
+
+/* Custom scrollbar styles for modern look */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #7c3aed, #4338ca);
+  border-radius: 10px;
+  border: 2px solid rgba(30, 41, 59, 0.5);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #8b5cf6, #5b21b6);
+}
+
+/* Firefox scrollbar styles */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #7c3aed rgba(30, 41, 59, 0.5);
+}
+
+/* Book info panel entrance animation */
+@keyframes bookPanelSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.book-panel-entrance {
+  animation: bookPanelSlideIn 0.3s ease-out;
+}
+
+/* Glowing text effect for Latin headers */
+.glow-text {
+  text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+}
+
+/* Gradient border animation */
+@keyframes gradientBorder {
+  0% {
+    border-image-source: linear-gradient(45deg, #7c3aed, #4338ca, #7c3aed);
+  }
+  50% {
+    border-image-source: linear-gradient(45deg, #4338ca, #7c3aed, #4338ca);
+  }
+  100% {
+    border-image-source: linear-gradient(45deg, #7c3aed, #4338ca, #7c3aed);
+  }
+}
+
+.animated-border {
+  border: 2px solid;
+  border-image: linear-gradient(45deg, #7c3aed, #4338ca) 1;
+  animation: gradientBorder 3s ease-in-out infinite;
+}

@@ -4,7 +4,9 @@ import './App.css';
 import BookInfoPanel from './components/BookInfoPanel';
 import WordVerseRelationships from './components/WordVerseRelationships';
 import NameOccurrencesComponent from './components/NameOccurrencesComponent';
-import { NameOccurrence } from './types';
+import AnalysisHistoryComponent from './components/AnalysisHistoryComponent';
+import QueueComponent from './components/QueueComponent';
+import { NameOccurrence, QueueItem } from './types';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -660,20 +662,7 @@ const getColorForWordType = (partOfSpeech: string): string => {
 
 
 
-// New interfaces for analysis history and global edit mode
-interface AnalysisHistoryEntry {
-  id: number;
-  action_type: string;
-  target_field: string;
-  target_identifier?: string;
-  old_value?: string;
-  new_value?: string;
-  change_source: string;
-  created_at: string;
-  confidence_score?: number;
-  review_status: string;
-  extra_data?: any;
-}
+// New interfaces for global edit mode
 
 interface EditSession {
   session_token: string;
@@ -712,19 +701,7 @@ interface GlobalEditState {
   isLoading: boolean;
 }
 
-interface QueueItem {
-  reference: string;
-  book: string;
-  chapter: number;
-  verse: number;
-  status: string;
-  grammar_complete: boolean;
-  theological_complete: boolean;
-  symbolic_complete: boolean;
-  cosmological_complete: boolean;
-  created_at: string;
-  updated_at: string;
-}
+
 
 interface EditState {
   isEditing: boolean;
@@ -1197,214 +1174,11 @@ const customScrollbarStyle = `
   }
 `;
 
-// Add this new component after WordInfoComponent and before App component
-const QueueComponent: React.FC<{
-  queueItems: QueueItem[];
-  onNavigateToVerse: (book: string, chapter: number, verse: number) => void;
-}> = ({ queueItems, onNavigateToVerse }) => {
-  return (
-    <div className="bg-gradient-to-br from-white via-gray-50 to-gray-100 border-4 border-gray-400 rounded-2xl p-6 shadow-lg">
-      <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800 mb-4">
-        <FontAwesomeIcon icon={faClipboardList} /> Analysis Queue
-      </h3>
-      <div className="max-h-80 overflow-y-auto">
-        {queueItems.length > 0 ? (
-          <div className="space-y-2">
-            {queueItems.map((item, idx) => (
-              <div 
-                key={idx} 
-                className="bg-white p-3 rounded-lg border-l-4 border-blue-500 cursor-pointer hover:bg-blue-50 transition-colors duration-200"
-                onClick={() => onNavigateToVerse(item.book, item.chapter, item.verse)}
-              >
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold text-blue-800">{item.reference}</span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    item.status === "Complete" 
-                      ? "bg-green-100 text-green-800" 
-                      : "bg-yellow-100 text-yellow-800"
-                  }`}>
-                    {item.status}
-                  </span>
-                </div>
-                <div className="flex gap-2 mt-2">
-                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${
-                    item.grammar_complete ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
-                  }`}>
-                    <FontAwesomeIcon icon={item.grammar_complete ? faCheckSquare : faSquare} />
-                    Grammar
-                  </span>
-                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${
-                    item.theological_complete ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
-                  }`}>
-                    <FontAwesomeIcon icon={item.theological_complete ? faCheckSquare : faSquare} />
-                    Theological
-                  </span>
-                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${
-                    item.symbolic_complete ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
-                  }`}>
-                    <FontAwesomeIcon icon={item.symbolic_complete ? faCheckSquare : faSquare} />
-                    Symbolic
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-8 text-gray-600">
-            <FontAwesomeIcon icon={faClipboardList} className="text-4xl mb-2 opacity-50" />
-            <div className="text-lg font-semibold mb-2">Queue is empty</div>
-            <div className="text-sm">Analysis queue will show recent verse processing activity.</div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
 
 
 
-// Analysis History Component
-const AnalysisHistoryComponent: React.FC<{
-  book: string;
-  chapter: number;
-  verse: number;
-}> = ({ book, chapter, verse }) => {
-  const [history, setHistory] = useState<AnalysisHistoryEntry[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [expanded, setExpanded] = useState(false);
 
-  useEffect(() => {
-    const fetchHistory = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch(`${API_BASE_URL}/analysis/history/${book}/${chapter}/${verse}`);
-        const data = await response.json();
-        if (data.found) {
-          setHistory(data.history);
-        }
-      } catch (error) {
-        console.error('Error fetching history:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
 
-    fetchHistory();
-  }, [book, chapter, verse]);
-
-  if (loading) {
-    return (
-      <div className="mt-4 p-3 bg-gray-50 rounded-lg border">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
-          <span>Loading history...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (history.length === 0) {
-    return (
-      <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-        <p className="text-sm text-yellow-800">No analysis history available for this verse.</p>
-      </div>
-    );
-  }
-
-  const displayedHistory = expanded ? history : history.slice(0, 5);
-
-  const getActionIcon = (actionType: string) => {
-    switch (actionType) {
-      case 'analysis': return faClipboardList;
-      case 'edit': return faEdit;
-      case 'regenerate': return faBrain;
-      case 'ai_generate': return faBrain;
-      default: return faQuestionCircle;
-    }
-  };
-
-  const getSourceColor = (source: string) => {
-    switch (source) {
-      case 'user': return 'text-blue-600';
-      case 'ai': return 'text-purple-600';
-      case 'greb_ai': return 'text-green-600';
-      case 'automated': return 'text-gray-600';
-      default: return 'text-gray-600';
-    }
-  };
-
-  return (
-    <div className="mt-4 p-4 bg-gray-50 border border-gray-300 rounded-lg">
-      <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
-        <FontAwesomeIcon icon={faClipboardList} className="text-gray-600" />
-        Analysis History ({history.length})
-      </h3>
-      <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar">
-        {displayedHistory.map((entry, index) => (
-          <div key={entry.id} className="p-3 bg-white border border-gray-200 rounded-lg">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <FontAwesomeIcon 
-                  icon={getActionIcon(entry.action_type)} 
-                  className="text-gray-500" 
-                />
-                <span className="font-semibold text-sm text-gray-800">
-                  {entry.action_type.replace('_', ' ')}
-                </span>
-                <span className={`text-xs font-medium ${getSourceColor(entry.change_source)}`}>
-                  {entry.change_source}
-                </span>
-              </div>
-              <span className="text-xs text-gray-500">
-                {new Date(entry.created_at).toLocaleString()}
-              </span>
-            </div>
-            
-            <div className="text-sm text-gray-700">
-              <strong>Field:</strong> {entry.target_field}
-              {entry.target_identifier && (
-                <span className="ml-2 text-gray-500">({entry.target_identifier})</span>
-              )}
-            </div>
-            
-            {entry.old_value && entry.new_value && (
-              <div className="mt-2 p-2 bg-gray-100 rounded text-xs">
-                <div className="text-red-600">
-                  <strong>From:</strong> {entry.old_value.length > 50 ? `${entry.old_value.substring(0, 50)}...` : entry.old_value}
-                </div>
-                <div className="text-green-600 mt-1">
-                  <strong>To:</strong> {entry.new_value.length > 50 ? `${entry.new_value.substring(0, 50)}...` : entry.new_value}
-                </div>
-              </div>
-            )}
-
-            {entry.confidence_score && (
-              <div className="mt-2 flex items-center gap-2">
-                <span className="text-xs text-gray-500">Confidence:</span>
-                <div className="w-16 bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full" 
-                    style={{ width: `${entry.confidence_score * 100}%` }}
-                  ></div>
-                </div>
-                <span className="text-xs text-gray-500">{Math.round(entry.confidence_score * 100)}%</span>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-      
-      {history.length > 5 && (
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="mt-3 text-sm text-blue-700 hover:text-blue-900 font-medium transition-colors duration-200"
-        >
-          {expanded ? `Show less` : `Show ${history.length - 5} more entries`}
-        </button>
-      )}
-    </div>
-  );
-};
 
 // Global Edit Mode Component
 const GlobalEditComponent: React.FC<{

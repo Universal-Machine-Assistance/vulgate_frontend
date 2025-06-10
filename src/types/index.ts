@@ -21,6 +21,34 @@ export interface VerseRelationshipsResponse {
   verses: VerseRelationship[];
 }
 
+export interface AnalysisHistoryEntry {
+  id: number;
+  action_type: string;
+  target_field: string;
+  target_identifier?: string;
+  old_value?: string;
+  new_value?: string;
+  change_source: string;
+  created_at: string;
+  confidence_score?: number;
+  review_status: string;
+  extra_data?: any;
+}
+
+export interface QueueItem {
+  reference: string;
+  book: string;
+  chapter: number;
+  verse: number;
+  status: string;
+  grammar_complete: boolean;
+  theological_complete: boolean;
+  symbolic_complete: boolean;
+  cosmological_complete: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // Book names mapping
 export const BOOK_NAMES: { [key: string]: string } = {
   "Gn": "Genesis",
