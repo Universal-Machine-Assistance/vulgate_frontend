@@ -15,6 +15,14 @@ import GlobalEditComponent from './components/GlobalEditComponent';
 import InterpretationLayersComponent from './components/InterpretationLayersComponent';
 import AnimatedWrapper from './components/AnimatedWrapper';
 import { NameOccurrence, QueueItem, WordInfo, GrammarColorKey, GRAMMAR_COLORS, Language, LANGUAGES, Book, BOOK_ICONS, getBookCategoryColor, Verse } from './types';
+import { 
+  getIconForWordType, 
+  getColorForWordType, 
+  getColorsFromGrammarClass, 
+  normalizeLatin, 
+  getHighlightBgForWordType, 
+  getHighlightTextForWordType 
+} from './utils/grammarUtils';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -437,40 +445,13 @@ const getTranslationTypeIcon = (language: string, translationText: string) => {
   }
 };
 
-// Helper function to extract colors from Tailwind classes
-const getColorsFromGrammarClass = (colorClass: string) => {
-  const colorMap: { [key: string]: { bg: string; text: string } } = {
-    'bg-blue-100': { bg: '#dbeafe', text: '#1e40af' },
-    'bg-green-100': { bg: '#dcfce7', text: '#166534' },
-    'bg-purple-100': { bg: '#f3e8ff', text: '#7c3aed' },
-    'bg-orange-100': { bg: '#fed7aa', text: '#ea580c' },
-    'bg-gray-100': { bg: '#f3f4f6', text: '#374151' },
-    'bg-pink-100': { bg: '#fce7f3', text: '#be185d' },
-    'bg-red-100': { bg: '#fee2e2', text: '#dc2626' },
-    'bg-indigo-100': { bg: '#e0e7ff', text: '#4338ca' }
-  };
-  
-  // Extract the background class from the colorClass string
-  const bgClass = colorClass.split(' ').find(cls => cls.startsWith('bg-'));
-  return colorMap[bgClass || 'bg-gray-100'] || colorMap['bg-gray-100'];
-};
+
 
 // Get book category colors based on book type with more vibrant colors
 
 
 // Utility functions
-const normalizeLatin = (word: string): string => {
-  return word.toLowerCase()
-    // Handle common Latin ligatures and characters first
-    .replace(/æ/g, 'ae')  // æ ligature -> ae
-    .replace(/œ/g, 'oe')  // œ ligature -> oe  
-    .replace(/ſ/g, 's')   // long s -> s
-    // Then normalize Unicode and remove diacritics
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    // Remove non-Latin characters
-    .replace(/[^a-z]/g, '');
-};
+
 
 const lookupWord = async (word: string): Promise<WordInfo> => {
   try {
@@ -489,33 +470,7 @@ const lookupWord = async (word: string): Promise<WordInfo> => {
   }
 };
 
-const getIconForWordType = (partOfSpeech: string) => {
-  const iconMap: { [key: string]: any } = {
-    'noun': faBook,
-    'verb': faPenNib,
-    'adjective': faFillDrip,
-    'adverb': faGlobe,
-    'pronoun': faUser,
-    'preposition': faLayerGroup,
-    'conjunction': faPlus,
-    'interjection': faTint
-  };
-  return iconMap[partOfSpeech.toLowerCase()] || faQuestionCircle;
-};
 
-const getColorForWordType = (partOfSpeech: string): string => {
-  const colorMap: { [key: string]: string } = {
-    'noun': 'text-blue-400',
-    'verb': 'text-green-400',
-    'adjective': 'text-yellow-400',
-    'adverb': 'text-purple-400',
-    'pronoun': 'text-pink-400',
-    'preposition': 'text-red-400',
-    'conjunction': 'text-indigo-400',
-    'interjection': 'text-orange-400'
-  };
-  return colorMap[partOfSpeech.toLowerCase()] || 'text-gray-400';
-};
 
 
 
@@ -2758,38 +2713,6 @@ function getInterpretationLayers(state: VerseAnalysisState) {
   return layers;
 }
 
-// Add these helper functions above App
-function getHighlightBgForWordType(partOfSpeech: string) {
-  const pos = (partOfSpeech || '').toLowerCase();
-  switch (pos) {
-    case 'verb': return '#dbeafe'; // blue-100
-    case 'noun': return '#bbf7d0'; // green-100
-    case 'adjective': return '#e9d5ff'; // purple-100
-    case 'adverb': return '#fed7aa'; // orange-100
-    case 'pronoun': return '#fecaca'; // red-100
-    case 'preposition': return '#f3f4f6'; // gray-100
-    case 'conjunction': return '#fbcfe8'; // pink-100
-    case 'participle': return '#c7d2fe'; // indigo-100
-    case 'unknown':
-    case '':
-    default: return '#e5e7eb'; // gray-200
-  }
-}
-function getHighlightTextForWordType(partOfSpeech: string) {
-  const pos = (partOfSpeech || '').toLowerCase();
-  switch (pos) {
-    case 'verb': return '#1e40af'; // blue-800
-    case 'noun': return '#166534'; // green-800
-    case 'adjective': return '#6d28d9'; // purple-800
-    case 'adverb': return '#c2410c'; // orange-800
-    case 'pronoun': return '#b91c1c'; // red-800
-    case 'preposition': return '#1f2937'; // gray-800
-    case 'conjunction': return '#be185d'; // pink-800
-    case 'participle': return '#3730a3'; // indigo-800
-    case 'unknown':
-    case '':
-    default: return '#374151'; // gray-700
-  }
-}
+
 
 
