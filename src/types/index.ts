@@ -247,4 +247,34 @@ export const BOOK_NAMES: { [key: string]: string } = {
   "Jc": "James",
   "Judæ": "Jude",
   "Ap": "Revelation",
-}; 
+};
+
+// Additional interfaces for verse analysis
+export interface VerseAnalysis {
+  [key: string]: WordInfo;
+}
+
+export interface GrammarItem {
+  word: string;
+  meaning: string;
+  part_of_speech: string;
+  grammar_description?: string;
+  morphology?: string;
+}
+
+export interface VerseAnalysisState {
+  analysis: VerseAnalysis;
+  grammarBreakdown: GrammarItem[];
+  selectedWordIndex: number | null;
+  wordInfo: WordInfo | null;
+  isAnalysisDone: boolean;
+  translations: { [key: string]: string };
+  theological_layer?: string[];
+  symbolic_layer?: string[];
+  cosmological_layer?: string[];
+  nameOccurrences?: NameOccurrence[];
+  hoveredWord?: string | null;
+  selectedWord?: string | null;
+  isLoading?: boolean;
+  loadingMessage?: string;
+} 

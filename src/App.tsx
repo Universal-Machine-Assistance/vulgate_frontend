@@ -12,6 +12,8 @@ import BookDropdown from './components/BookDropdown';
 import VerseDropdown from './components/VerseDropdown';
 import ChapterDropdown from './components/ChapterDropdown';
 import GlobalEditComponent from './components/GlobalEditComponent';
+import InterpretationLayersComponent from './components/InterpretationLayersComponent';
+import AnimatedWrapper from './components/AnimatedWrapper';
 import { NameOccurrence, QueueItem, WordInfo, GrammarColorKey, GRAMMAR_COLORS, Language, LANGUAGES, Book, BOOK_ICONS, getBookCategoryColor, Verse } from './types';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -92,35 +94,7 @@ import successNotificationSound from './assets/sounds/success_notification.mp3';
 // Import Greb logo
 const GrebLogo = require('./GREB LOGO_ with White.png');
 
-// Animated component wrapper for enter/exit animations
-const AnimatedWrapper: React.FC<{
-  show: boolean;
-  children: React.ReactNode;
-  enterClass?: string;
-  exitClass?: string;
-  duration?: number;
-}> = ({ show, children, enterClass = 'smooth-entrance', exitClass = 'smooth-exit', duration = 300 }) => {
-  const [shouldRender, setShouldRender] = useState(show);
-  const [animationClass, setAnimationClass] = useState('');
 
-  useEffect(() => {
-    if (show) {
-      setShouldRender(true);
-      setAnimationClass(enterClass);
-    } else if (shouldRender) {
-      setAnimationClass(exitClass);
-      const timer = setTimeout(() => {
-        setShouldRender(false);
-        setAnimationClass('');
-      }, duration);
-      return () => clearTimeout(timer);
-    }
-  }, [show, enterClass, exitClass, duration, shouldRender]);
-
-  if (!shouldRender) return null;
-
-  return <div className={animationClass}>{children}</div>;
-};
 
 // Constants
 const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
@@ -2238,35 +2212,7 @@ const VersePage: React.FC = () => {
     }
   };
 
-  // Helper function to render interpretation layers
-  const renderInterpretationLayers = () => {
-    if (!analysisResultHasLayers(verseAnalysisState)) return null;
 
-    const { theological_layer = [], symbolic_layer = [], cosmological_layer = [] } = verseAnalysisState;
-
-    const layerCard = (title: string, latin: string, icon: any, points: string[], bg: string, border: string) => (
-      <div className={`${bg} ${border} rounded-lg p-4 shadow`}>
-        <h3 className="text-xl font-bold mb-2 flex items-center">
-          <FontAwesomeIcon icon={icon} className="mr-2" />
-          {title}
-        </h3>
-        <div className="italic text-gray-700 mb-1">{latin}</div>
-        <ul className="list-disc list-inside text-gray-800 space-y-1">
-          {points.map((p, idx) => (
-            <li key={idx}>{p}</li>
-          ))}
-        </ul>
-      </div>
-    );
-
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {layerCard('Theological Layer', 'Stratum Theologicum', faChurch, theological_layer, 'bg-yellow-100', 'border-l-8 border-yellow-400')}
-        {layerCard('Symbolic Layer (Jungian & Campbell)', 'Stratum Symbolicum (Jungianum & Campbell)', faBrain, symbolic_layer, 'bg-purple-100', 'border-l-8 border-purple-400')}
-        {layerCard('Cosmological-Historical Layer', 'Stratum Cosmologicum-Historicum', faGlobe, cosmological_layer, 'bg-orange-100', 'border-l-8 border-orange-400')}
-      </div>
-    );
-  };
 
   return (
     <div className="min-h-screen bg-[#fefaf0] text-black p-8">
@@ -2659,7 +2605,11 @@ const VersePage: React.FC = () => {
                 
                 {/* Theological interpretation */}
                 {analysisResultHasLayers(verseAnalysisState) ? (
-                  renderInterpretationLayers()
+                  <InterpretationLayersComponent 
+                    theological_layer={verseAnalysisState.theological_layer}
+                    symbolic_layer={verseAnalysisState.symbolic_layer}
+                    cosmological_layer={verseAnalysisState.cosmological_layer}
+                  />
                 ) : (
                   <div className="bg-gray-50 border-4 border-gray-300 rounded-lg shadow-md p-4">
                     <h4 className="text-md font-bold mb-2 text-gray-700">
