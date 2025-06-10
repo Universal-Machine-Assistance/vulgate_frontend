@@ -47,6 +47,10 @@ import {
 } from './utils/grammarUtils';
 import { createAudioRecordingUtils } from './utils/audioUtils';
 import { createNavigationUtils } from './utils/navigationUtils';
+import { createAnalysisUtils } from './utils/analysisUtils';
+import { createCacheUtils } from './utils/cacheUtils';
+import { createEventHandlerUtils } from './utils/eventHandlerUtils';
+import { createKeyboardUtils } from './utils/keyboardUtils';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSun } from '@fortawesome/free-solid-svg-icons';
 import { API_BASE_URL, BOOK_NAMES, BOOK_ABBREVIATIONS } from './constants/index';
