@@ -9,7 +9,8 @@ import QueueComponent from './components/QueueComponent';
 import WordInfoComponent from './components/WordInfoComponent';
 import LanguageDropdown from './components/LanguageDropdown';
 import BookDropdown from './components/BookDropdown';
-import { NameOccurrence, QueueItem, WordInfo, GrammarColorKey, GRAMMAR_COLORS, Language, LANGUAGES, Book, BOOK_ICONS, getBookCategoryColor } from './types';
+import VerseDropdown from './components/VerseDropdown';
+import { NameOccurrence, QueueItem, WordInfo, GrammarColorKey, GRAMMAR_COLORS, Language, LANGUAGES, Book, BOOK_ICONS, getBookCategoryColor, Verse } from './types';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -312,10 +313,7 @@ library.add(
 
 
 
-interface Verse {
-  verse_number: number;
-  text: string;
-}
+
 
 interface VerseAnalysis {
   [key: string]: WordInfo;
@@ -700,78 +698,7 @@ const ChapterDropdown: React.FC<{
 };
 
 // Custom Dropdown for Verse Selector
-const VerseDropdown: React.FC<{
-  verses: Verse[];
-  selectedVerseNumber: number;
-  handleVerseChange: (verseNumber: number) => void;
-}> = ({ verses, selectedVerseNumber, handleVerseChange }) => {
-  const [open, setOpen] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(e.target as Node) &&
-        buttonRef.current &&
-        !buttonRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    };
-    if (open) document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [open]);
-
-  return (
-    <div className="relative">
-      <button
-        ref={buttonRef}
-        className="bg-[#f8fafc] border-4 border-black rounded shadow-lg shadow-gray-300/40 px-4 py-2 flex items-center gap-2 font-black text-lg cursor-pointer min-w-[120px]"
-        onClick={() => setOpen(o => !o)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        type="button"
-      >
-        <FontAwesomeIcon icon={faBook} className="text-black" />
-        Verse {selectedVerseNumber}
-        <FontAwesomeIcon icon={faChevronDown} className="ml-2 text-gray-500" />
-      </button>
-      {open && (
-        <div
-          ref={menuRef}
-          className="absolute left-0 mt-2 z-30 bg-white border-4 border-black rounded shadow-lg shadow-gray-300/40 min-w-full max-h-80 overflow-y-auto custom-scrollbar hide-scrollbar"
-          role="listbox"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
-          {verses.map(verse => (
-            <button
-              key={verse.verse_number}
-              className={`w-full text-left px-4 py-2 flex items-center gap-2 font-bold text-lg hover:bg-blue-100 focus:bg-blue-200 transition rounded ${selectedVerseNumber === verse.verse_number ? 'bg-blue-200' : ''}`}
-              onClick={() => { handleVerseChange(verse.verse_number); setOpen(false); }}
-              role="option"
-              aria-selected={selectedVerseNumber === verse.verse_number}
-              tabIndex={0}
-            >
-              Verse {verse.verse_number}
-              {selectedVerseNumber === verse.verse_number && <span className="ml-auto">✔️</span>}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 // Custom scrollbar hide utility and verse animations
 const customScrollbarStyle = `
@@ -1882,9 +1809,9 @@ const VersePage: React.FC = () => {
       console.log('Key pressed:', event.key, 'Shift:', event.shiftKey); // Debug log
       
       // Audio controls
-      if (event.key.toLowerCase() === 'r') {
+      if (event.key.toLowerCase() === 'r' && event.metaKey && event.shiftKey) {
         event.preventDefault();
-        console.log('R key - triggering record'); // Debug log
+        console.log('Cmd+Shift+R - triggering record'); // Debug log
         handleRecordClick();
       } else if (event.key.toLowerCase() === 'p') {
         event.preventDefault();

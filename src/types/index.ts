@@ -1,5 +1,14 @@
 // Shared interfaces for the application
 
+// Import FontAwesome icons for BOOK_ICONS
+import {
+  faTree, faMountain, faFire, faUsers, faScroll, faShield, faGavel, faHeart,
+  faHome, faShieldAlt, faHandsHelping, faCrown, faStar, faBalanceScale, faMusic,
+  faLightbulb, faSun, faRing, faEye, faBook, faDove, faHeartbeat, faTint,
+  faLeaf, faFish, faEnvelope, faFeather, faUserTie, faGift, faChurch,
+  faHandHoldingHeart
+} from '@fortawesome/free-solid-svg-icons';
+
 export interface NameOccurrence {
   book: string;
   chapter: number;
@@ -98,14 +107,10 @@ export interface Book {
   created_at: string;
 }
 
-// Import FontAwesome icons for BOOK_ICONS
-import {
-  faTree, faMountain, faFire, faUsers, faScroll, faShield, faGavel, faHeart,
-  faHome, faShieldAlt, faHandsHelping, faCrown, faStar, faBalanceScale, faMusic,
-  faLightbulb, faSun, faRing, faEye, faBook, faDove, faHeartbeat, faTint,
-  faLeaf, faFish, faEnvelope, faFeather, faUserTie, faGift, faChurch,
-  faHandHoldingHeart
-} from '@fortawesome/free-solid-svg-icons';
+export interface Verse {
+  verse_number: number;
+  text: string;
+}
 
 export const BOOK_ICONS: { [key: string]: any } = {
   "Gn": faTree,         // Genesis - Tree of Life
