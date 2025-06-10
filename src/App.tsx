@@ -8,7 +8,8 @@ import AnalysisHistoryComponent from './components/AnalysisHistoryComponent';
 import QueueComponent from './components/QueueComponent';
 import WordInfoComponent from './components/WordInfoComponent';
 import LanguageDropdown from './components/LanguageDropdown';
-import { NameOccurrence, QueueItem, WordInfo, GrammarColorKey, GRAMMAR_COLORS, Language, LANGUAGES } from './types';
+import BookDropdown from './components/BookDropdown';
+import { NameOccurrence, QueueItem, WordInfo, GrammarColorKey, GRAMMAR_COLORS, Language, LANGUAGES, Book, BOOK_ICONS, getBookCategoryColor } from './types';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -309,13 +310,7 @@ library.add(
   faGem
 );
 
-interface Book {
-  id: number;
-  name: string;
-  latin_name: string;
-  chapter_count: number;
-  created_at: string;
-}
+
 
 interface Verse {
   verse_number: number;
@@ -487,85 +482,7 @@ const getColorsFromGrammarClass = (colorClass: string) => {
 };
 
 // Get book category colors based on book type with more vibrant colors
-const getBookCategoryColor = (bookName: string) => {
-  const pentateuch = ['Gn', 'Ex', 'Lv', 'Nm', 'Dt'];
-  const historical = ['Jos', 'Jdc', 'Rt', '1Sm', '2Sm', '1Rg', '2Rg', '1Chr', '2Chr', 'Esr', 'Ne', 'Tb', 'Jdt', 'Est', '1Mac', '2Mac'];
-  const wisdom = ['Job', 'Ps', 'Pr', 'Qo', 'Ct', 'Ws', 'Si'];
-  const prophets = ['Is', 'Jr', 'Lm', 'Ba', 'Ez', 'Dn', 'Os', 'Jl', 'Am', 'Abd', 'Jon', 'Mi', 'Na', 'Hab', 'So', 'Ag', 'Za', 'Ml'];
-  const gospels = ['Mt', 'Mc', 'Lc', 'Jo'];
-  const paulineEpistles = ['Rm', '1Cor', '2Cor', 'Gal', 'Eph', 'Ph', 'Col', '1Th', '2Th', '1Tm', '2Tm', 'Tt', 'Phm'];
-  const catholicEpistles = ['Heb', 'Jas', '1Pt', '2Pt', '1Jn', '2Jn', '3Jn', 'Jude'];
-  const acts = ['Act'];
-  
-  if (pentateuch.includes(bookName)) return 'bg-gradient-to-br from-red-100 to-red-200 hover:from-red-200 hover:to-red-300 border-red-300';
-  if (historical.includes(bookName)) return 'bg-gradient-to-br from-blue-100 to-blue-200 hover:from-blue-200 hover:to-blue-300 border-blue-300';
-  if (wisdom.includes(bookName)) return 'bg-gradient-to-br from-emerald-100 to-emerald-200 hover:from-emerald-200 hover:to-emerald-300 border-emerald-300';
-  if (prophets.includes(bookName)) return 'bg-gradient-to-br from-purple-100 to-purple-200 hover:from-purple-200 hover:to-purple-300 border-purple-300';
-  if (gospels.includes(bookName)) return 'bg-gradient-to-br from-amber-100 to-amber-200 hover:from-amber-200 hover:to-amber-300 border-amber-300';
-  if (paulineEpistles.includes(bookName)) return 'bg-gradient-to-br from-rose-100 to-rose-200 hover:from-rose-200 hover:to-rose-300 border-rose-300';
-  if (catholicEpistles.includes(bookName)) return 'bg-gradient-to-br from-indigo-100 to-indigo-200 hover:from-indigo-200 hover:to-indigo-300 border-indigo-300';
-  if (acts.includes(bookName)) return 'bg-gradient-to-br from-teal-100 to-teal-200 hover:from-teal-200 hover:to-teal-300 border-teal-300';
-  if (bookName === 'Ap') return 'bg-gradient-to-br from-orange-100 to-orange-200 hover:from-orange-200 hover:to-orange-300 border-orange-300'; // Apocalypse
-  return 'bg-gradient-to-br from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 border-gray-300';
-};
 
-// Book icon mappings
-const BOOK_ICONS: { [key: string]: any } = {
-  "Gn": faTree,         // Genesis - Tree of Life
-  "Ex": faMountain,     // Exodus - Mount Sinai
-  "Lev": faFire,        // Leviticus - Sacrificial fire
-  "Num": faUsers,       // Numbers - Census
-  "Dt": faScroll,       // Deuteronomy - Law scroll
-  "Jos": faShield,      // Joshua - Military conquest
-  "Jdc": faGavel,       // Judges - Justice
-  "Ru": faHeart,        // Ruth - Love story
-  "Esd": faHome,        // Ezra - Rebuilding
-  "Neh": faShieldAlt,   // Nehemiah - Defense
-  "Tb": faHandsHelping, // Tobit - Help
-  "Jdt": faCrown,       // Judith - Royalty/victory
-  "Est": faStar,        // Esther - Star
-  "Jb": faBalanceScale, // Job - Justice/suffering
-  "Ps": faMusic,        // Psalms - Music (will need to import)
-  "Pr": faLightbulb,    // Proverbs - Wisdom
-  "Qo": faSun,          // Ecclesiastes - Under the sun
-  "Ct": faRing,         // Song of Songs - Wedding
-  "Sap": faEye,         // Wisdom - Insight
-  "Si": faBook,         // Sirach - Teaching
-  "Is": faDove,         // Isaiah - Holy Spirit
-  "Jer": faHeartbeat,   // Jeremiah - Broken heart
-  "Lam": faTint,        // Lamentations - Tears
-  "Ba": faScroll,       // Baruch - Prophecy
-  "Ez": faEye,          // Ezekiel - Visions
-  "Dn": faFire,         // Daniel - Fiery furnace
-  "Os": faHeart,        // Hosea - Faithful love
-  "Jl": faLeaf,         // Joel - Locusts/vegetation
-  "Am": faBalanceScale, // Amos - Justice
-  "Ab": faMountain,     // Obadiah - Mountain
-  "Jon": faFish,        // Jonah - Great fish
-  "Mi": faGavel,        // Micah - Justice
-  "Na": faShield,       // Nahum - Destruction
-  "Ha": faEye,          // Habakkuk - Watchman
-  "So": faFire,         // Zephaniah - Day of the Lord
-  "Ag": faHome,         // Haggai - Temple building
-  "Za": faEye,          // Zechariah - Visions
-  "Mal": faEnvelope,    // Malachi - Messenger
-  "Mt": faCrown,        // Matthew - King
-  "Mc": faFeather,      // Mark - Quick/swift
-  "Lc": faUserTie,      // Luke - Physician
-  "Jo": faHeart,        // John - Love
-  "Ac": faFire,         // Acts - Pentecost
-  "Rm": faBalanceScale, // Romans - Justification
-  "Ga": faGift,         // Galatians - Freedom
-  "Ep": faUsers,        // Ephesians - Church unity
-  "Ph": faHeart,        // Philippians - Joy
-  "Col": faStar,        // Colossians - Christ supreme
-  "Tit": faChurch,      // Titus - Church order
-  "Phm": faHandHoldingHeart, // Philemon - Reconciliation
-  "He": faShieldAlt,    // Hebrews - Faith
-  "Jc": faBalanceScale, // James - Faith and works
-  "Judæ": faShield,     // Jude - Contending for faith
-  "Ap": faCrown,        // Revelation - Christ's victory
-};
 
 // Utility functions
 const normalizeLatin = (word: string): string => {
@@ -700,91 +617,7 @@ interface VerseAnalysisState {
 
 
 
-// Custom Dropdown for Book Selector
-const BookDropdown: React.FC<{
-  books: Book[];
-  selectedBookAbbr: string;
-  setSelectedBookAbbr: (abbr: string) => void;
-  onBookChange?: (book: string, chapter: number, verse: number) => void;
-}> = ({ books, selectedBookAbbr, setSelectedBookAbbr, onBookChange }) => {
-  const [open, setOpen] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(e.target as Node) &&
-        buttonRef.current &&
-        !buttonRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    };
-    if (open) document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [open]);
-
-  // Keyboard navigation
-  useEffect(() => {
-    if (!open) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [open]);
-
-  const selectedBook = books.find(b => b.latin_name === selectedBookAbbr);
-
-  return (
-    <div className="relative">
-      <button
-        ref={buttonRef}
-        className="bg-white border-4 border-black rounded shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] px-4 py-2 flex items-center gap-2 font-black text-lg cursor-pointer min-w-[120px]"
-        onClick={() => setOpen(o => !o)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        type="button"
-      >
-        <FontAwesomeIcon icon={BOOK_ICONS[selectedBookAbbr] || faBook} className="text-black" />
-        {selectedBook ? selectedBook.latin_name : 'Book'}
-        <FontAwesomeIcon icon={faChevronDown} className="ml-2 text-gray-500" />
-      </button>
-      {open && (
-        <div
-          ref={menuRef}
-          className="absolute left-0 mt-2 z-30 bg-white border-4 border-black rounded shadow-lg min-w-full max-h-80 overflow-y-auto custom-scrollbar hide-scrollbar"
-          role="listbox"
-        >
-          {books.map(book => (
-            <button
-              key={book.id}
-              className={`w-full text-left px-4 py-2 flex items-center gap-2 font-bold text-lg ${getBookCategoryColor(book.latin_name)} focus:ring-2 focus:ring-black transition rounded ${selectedBookAbbr === book.latin_name ? 'ring-2 ring-black' : ''}`}
-              onClick={() => { 
-                setSelectedBookAbbr(book.latin_name); 
-                setOpen(false);
-                // When book changes, navigate to chapter 1 verse 1 of the new book
-                if (onBookChange) {
-                  onBookChange(book.latin_name, 1, 1);
-                }
-              }}
-              role="option"
-              aria-selected={selectedBookAbbr === book.latin_name}
-              tabIndex={0}
-            >
-              <FontAwesomeIcon icon={BOOK_ICONS[book.latin_name] || faBook} className="text-black" />
-              {book.latin_name} <span className="ml-2 text-gray-500 text-base">{book.name}</span>
-              {selectedBookAbbr === book.latin_name && <span className="ml-auto">✔️</span>}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 // Custom Dropdown for Chapter Selector
 const ChapterDropdown: React.FC<{
