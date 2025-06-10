@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation, Routes, Route } from 'react-router-dom';
 import './App.css';
+import BookInfoPanel from './components/BookInfoPanel';
+import WordVerseRelationships from './components/WordVerseRelationships';
+import NameOccurrencesComponent from './components/NameOccurrencesComponent';
+import { NameOccurrence } from './types';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -72,7 +76,8 @@ import {
   faQuoteLeft,
   faRobot,
   faBookOpen,
-  faGem
+  faGem,
+  faInfoCircle
 } from '@fortawesome/free-solid-svg-icons';
 import successNotificationSound from './assets/sounds/success_notification.mp3';
 
@@ -653,13 +658,7 @@ const getColorForWordType = (partOfSpeech: string): string => {
   return colorMap[partOfSpeech.toLowerCase()] || 'text-gray-400';
 };
 
-interface NameOccurrence {
-  book: string;
-  chapter: number;
-  verse: number;
-  text: string;
-  context: string;
-}
+
 
 // New interfaces for analysis history and global edit mode
 interface AnalysisHistoryEntry {
@@ -754,131 +753,7 @@ interface VerseAnalysisState {
 }
 
 // Types for verse relationships
-interface VerseRelationship {
-  verse_reference: string;
-  verse_text: string;
-  position: number;
-}
 
-interface VerseRelationshipsResponse {
-  word: string;
-  found: boolean;
-  verse_count: number;
-  verses: VerseRelationship[];
-}
-
-// Component for displaying word-verse relationships
-const WordVerseRelationships: React.FC<{
-  word: string;
-  onNavigateToVerse?: (reference: string) => void;
-}> = ({ word, onNavigateToVerse }) => {
-  const [relationships, setRelationships] = React.useState<VerseRelationship[]>([]);
-  const [loading, setLoading] = React.useState(false);
-  const [expanded, setExpanded] = React.useState(false);
-
-  React.useEffect(() => {
-    const fetchRelationships = async () => {
-      if (!word) return;
-      
-      setLoading(true);
-      try {
-        const response = await fetch(`${API_BASE_URL}/dictionary/word/${encodeURIComponent(word)}/verses`);
-        const data: VerseRelationshipsResponse = await response.json();
-        
-        if (data.found && data.verses) {
-          setRelationships(data.verses);
-        } else {
-          setRelationships([]);
-        }
-      } catch (error) {
-        console.error('Error fetching verse relationships:', error);
-        setRelationships([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchRelationships();
-  }, [word]);
-
-  if (loading) {
-    return (
-      <div className="mt-4 p-3 bg-gray-50 rounded-lg border">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-          <span>Loading verse relationships...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (relationships.length === 0) {
-    return null; // Don't show anything if no relationships found
-  }
-
-  const displayedRelationships = expanded ? relationships : relationships.slice(0, 3);
-
-  const handleVerseClick = (reference: string) => {
-    if (onNavigateToVerse) {
-      onNavigateToVerse(reference);
-    } else {
-      // Parse reference and navigate
-      const parts = reference.split(' ');
-      if (parts.length >= 2) {
-        const book = parts[0];
-        const chapterVerse = parts[1].split(':');
-        if (chapterVerse.length === 2) {
-          const chapter = parseInt(chapterVerse[0]);
-          const verse = parseInt(chapterVerse[1]);
-          window.location.href = `/${book}/${chapter}/${verse}`;
-        }
-      }
-    }
-  };
-
-  return (
-    <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-      <h4 className="text-sm font-black text-blue-900 mb-2 uppercase tracking-wide flex items-center gap-2">
-        <FontAwesomeIcon icon={faBook} className="text-blue-700" />
-        Related Verses ({relationships.length})
-      </h4>
-      <div className="space-y-2">
-        {displayedRelationships.map((relationship, index) => (
-          <div 
-            key={index}
-            className="p-2 bg-white rounded border border-blue-200 hover:bg-blue-50 transition-colors duration-200 cursor-pointer"
-            onClick={() => handleVerseClick(relationship.verse_reference)}
-            title="Click to navigate to this verse"
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-bold text-blue-800">
-                {relationship.verse_reference}
-              </span>
-              <FontAwesomeIcon 
-                icon={faArrowRight} 
-                className="text-blue-600 text-xs opacity-75" 
-              />
-            </div>
-            <p className="text-xs text-gray-700 leading-relaxed">
-              {relationship.verse_text.length > 100 
-                ? `${relationship.verse_text.substring(0, 100)}...` 
-                : relationship.verse_text}
-            </p>
-          </div>
-        ))}
-      </div>
-      
-      {relationships.length > 3 && (
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="mt-2 text-xs text-blue-700 hover:text-blue-900 font-medium transition-colors duration-200"
-        >
-          {expanded ? `Show less` : `Show ${relationships.length - 3} more verses`}
-        </button>
-      )}
-    </div>
-  );
-};
 
 // WordInfo Component - Simplified without buttons
 const WordInfoComponent: React.FC<{ 
@@ -1386,35 +1261,7 @@ const QueueComponent: React.FC<{
   );
 };
 
-const NameOccurrencesComponent: React.FC<{
-  occurrences: NameOccurrence[];
-  onNavigate: (book: string, chapter: number, verse: number) => void;
-}> = ({ occurrences, onNavigate }) => {
-  if (!occurrences || occurrences.length === 0) return null;
 
-  return (
-    <div className="mt-4 p-4 bg-blue-50 border-4 border-blue-400 rounded-lg shadow-lg">
-      <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
-        <FontAwesomeIcon icon={faUser} className="text-blue-600" />
-        Other Occurrences
-      </h3>
-      <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
-        {occurrences.map((occ, index) => (
-          <button
-            key={index}
-            onClick={() => onNavigate(occ.book, occ.chapter, occ.verse)}
-            className="w-full text-left p-2 hover:bg-blue-100 rounded transition-colors duration-200 border-2 border-blue-200"
-          >
-            <div className="font-bold text-blue-800">
-              {BOOK_NAMES[occ.book] || occ.book} {occ.chapter}:{occ.verse}
-            </div>
-            <div className="text-sm text-gray-600">{occ.context}</div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 // Analysis History Component
 const AnalysisHistoryComponent: React.FC<{
@@ -1888,6 +1735,9 @@ const VersePage: React.FC = () => {
   const [isNavigating, setIsNavigating] = useState(false);
   const [verseAnimation, setVerseAnimation] = useState<'slide-down' | 'slide-up' | 'none'>('none');
   const [isTransitioning, setIsTransitioning] = useState(false);
+  
+  // Book info panel state
+  const [isBookInfoOpen, setIsBookInfoOpen] = useState<boolean>(false);
 
   // Initialize AudioContext
   useEffect(() => {
@@ -2002,6 +1852,33 @@ const VersePage: React.FC = () => {
       ...prev,
       hoveredWord: word ? normalizeLatin(word) : null
     }));
+  };
+
+  // Handle book info navigation to verse
+  const handleBookInfoNavigateToVerse = (reference: string) => {
+    // Parse reference like "Genesis 1:1" or "Gn 1:1"
+    const parts = reference.split(' ');
+    if (parts.length < 2) return;
+    
+    const bookPart = parts[0];
+    const chapterVerse = parts[1];
+    const [chapterStr, verseStr] = chapterVerse.split(':');
+    
+    const chapter = parseInt(chapterStr, 10);
+    const verse = parseInt(verseStr, 10);
+    
+    if (isNaN(chapter) || isNaN(verse)) return;
+    
+    // Find the book abbreviation
+    const bookAbbr = Object.keys(BOOK_NAMES).find(
+      abbr => BOOK_NAMES[abbr].toLowerCase() === bookPart.toLowerCase() || abbr === bookPart
+    );
+    
+    if (!bookAbbr) return;
+    
+    // Navigate to the verse
+    navigate(`/${bookAbbr}/${chapter}/${verse}`);
+    setIsBookInfoOpen(false);
   };
 
   // Set selected verse when verses load
@@ -3350,7 +3227,7 @@ const VersePage: React.FC = () => {
           <img 
             src="/vulgate_icon.png" 
             alt="Vulgate Icon" 
-            className="w-12 h-12 opacity-90 hover:opacity-100 transition-opacity duration-200"
+            className="w-16 h-16 opacity-90 hover:opacity-100 transition-opacity duration-200"
             title="Vulgate Clementina"
           />
           <div>
@@ -3417,7 +3294,13 @@ const VersePage: React.FC = () => {
           {/* Verse and translation */}
           <div className="w-full">
             <div className="font-bold text-lg mb-2 flex items-center gap-2 justify-center">
-              <FontAwesomeIcon icon={faBook} />
+              <button
+                onClick={() => setIsBookInfoOpen(true)}
+                className="text-purple-600 hover:text-purple-800 hover:scale-110 transition-all duration-200 p-1 rounded"
+                title="Informatio Libri - Click for book information"
+              >
+                <FontAwesomeIcon icon={faBook} />
+              </button>
               {BOOK_NAMES[selectedBookAbbr] || selectedBookAbbr} {currentChapter}:{selectedVerse?.verse_number}
               {/* Navigation state indicator */}
               {navigationInProgress && (
@@ -3449,10 +3332,12 @@ const VersePage: React.FC = () => {
                   // Analysis completed animation class
                   const analysisCompleteClass = verseAnalysisState.isAnalysisDone ? 'analysis-complete' : '';
                   
-                  let className = `mx-1 break-words inline-block font-black cursor-pointer transition-all duration-500 ${analysisCompleteClass} `;
+                  let className = `mx-1 break-words inline-block font-black cursor-pointer transition-all duration-500 ${analysisCompleteClass} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 focus:bg-blue-50`;
                   let style: React.CSSProperties = {
                     transformOrigin: 'center',
-                    willChange: 'transform'
+                    willChange: 'transform',
+                    padding: '0.15em 0.2em',
+                    margin: '0 0.1em'
                   };
                   
                   // Show highlights only if analysis is done and interaction is happening
@@ -3467,6 +3352,7 @@ const VersePage: React.FC = () => {
                     style.padding = '0.15em 0.4em';
                     style.position = 'relative';
                     style.zIndex = 1;
+                    style.border = 'none';
                     
                     if (isSelected) {
                       style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.5)';
@@ -3486,25 +3372,47 @@ const VersePage: React.FC = () => {
                     }
                   } else {
                     // Default black text - no highlighting until analysis completes
-                    className += 'text-black hover:bg-gray-100 hover:rounded ';
+                    className += 'text-black hover:bg-gray-100 hover:rounded hover:shadow-sm ';
+                    style.border = 'none';
+                    style.background = 'transparent';
                   }
                   
                   return (
-                    <span
+                    <button
                       key={index}
+                      type="button"
                       onClick={(e) => {
                         e.preventDefault();
                         handleWordClick(index);
                         handleGrammarWordClick(cleanWord);
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleWordClick(index);
+                          handleGrammarWordClick(cleanWord);
+                        }
+                      }}
                       onMouseEnter={() => handleWordHover(cleanWord)}
                       onMouseLeave={() => handleWordHover(null)}
                       className={className}
-                      style={style}
+                      style={{
+                        ...style,
+                        border: 'none',
+                        background: style.backgroundColor || 'transparent',
+                        fontFamily: 'inherit',
+                        fontSize: 'inherit',
+                        fontWeight: 'inherit',
+                        textDecoration: 'none',
+                        outline: 'none'
+                      }}
                       title={wordInfo ? `${wordInfo.partOfSpeech}: ${wordInfo.definition}` : 'Click for definition'}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`Word: ${cleanWord}${wordInfo ? ` - ${wordInfo.partOfSpeech}: ${wordInfo.definition}` : ''}`}
                     >
                       {word}
-                    </span>
+                    </button>
                   );
                 })}
                   </p>
@@ -3798,7 +3706,14 @@ const VersePage: React.FC = () => {
           </div>
         </div>
       </div>
-      
+
+      {/* Book Info Panel */}
+      <BookInfoPanel
+        bookAbbr={selectedBookAbbr}
+        isOpen={isBookInfoOpen}
+        onClose={() => setIsBookInfoOpen(false)}
+        onNavigateToVerse={handleBookInfoNavigateToVerse}
+      />
 
     </div>
   );
