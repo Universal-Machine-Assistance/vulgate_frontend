@@ -173,6 +173,7 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(true);
+    console.log('Drag entered target area');
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
@@ -181,23 +182,32 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
     // Only set dragOver to false if we're leaving the upload area entirely
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setIsDragOver(false);
+      console.log('Drag left target area');
     }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    // Set the correct drop effect
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
-
+    
+    console.log('Drop handled in target area');
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
+      console.log(`Uploading ${files.length} files`);
       handleImageUpload(files);
     }
+    
+    return false; // Ensure no further propagation
   };
 
   const handleImageDelete = async (imageId: string) => {
@@ -372,27 +382,40 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
     resetImageView();
   }, [currentImageIndex]);
 
-  // Prevent default drag behaviors globally within the component
+  // Prevent default drag behaviors globally to stop Chrome from opening images
   useEffect(() => {
     const preventDefaults = (e: Event) => {
       e.preventDefault();
       e.stopPropagation();
     };
 
-    const handleGlobalDrop = (e: Event) => {
+    const handleGlobalDragOver = (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      // Set dropEffect to copy to show the correct cursor
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    };
+
+    const handleGlobalDrop = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // Prevent browser from opening the file
+      console.log('Global drop prevented');
     };
 
     // Add event listeners to prevent default drag/drop behavior
-    document.addEventListener('dragenter', preventDefaults);
-    document.addEventListener('dragover', preventDefaults);
-    document.addEventListener('drop', handleGlobalDrop);
+    document.addEventListener('dragenter', preventDefaults, false);
+    document.addEventListener('dragover', handleGlobalDragOver, false);
+    document.addEventListener('drop', handleGlobalDrop, false);
+    document.addEventListener('dragleave', preventDefaults, false);
 
     return () => {
-      document.removeEventListener('dragenter', preventDefaults);
-      document.removeEventListener('dragover', preventDefaults);
-      document.removeEventListener('drop', handleGlobalDrop);
+      document.removeEventListener('dragenter', preventDefaults, false);
+      document.removeEventListener('dragover', handleGlobalDragOver, false);
+      document.removeEventListener('drop', handleGlobalDrop, false);
+      document.removeEventListener('dragleave', preventDefaults, false);
     };
   }, []);
 
@@ -432,7 +455,13 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
   }
 
   return (
-    <div className="verse-image-manager bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+    <div 
+      className="verse-image-manager bg-slate-800/50 rounded-xl p-4 border border-slate-700"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-purple-300 flex items-center">
           <FontAwesomeIcon icon={faImage} className="mr-2" />
