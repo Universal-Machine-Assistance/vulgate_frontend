@@ -60,7 +60,7 @@ interface BookInfoPanelProps {
   onNavigateToVerse?: (reference: string) => void;
 }
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
+const API_BASE_URL = 'http://127.0.0.1:8001/api/v1';
 
 // Helper functions to generate book information
 const generateBookSummary = (bookAbbr: string): string => {

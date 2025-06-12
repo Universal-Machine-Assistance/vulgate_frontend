@@ -33,7 +33,7 @@ import LanguageDropdown from './LanguageDropdown';
 import AnimatedWrapper from './AnimatedWrapper';
 import VerseImageManager from './VerseImageManager';
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
+const API_BASE_URL = 'http://127.0.0.1:8001/api/v1';
 
 interface VerseAnalysis {
   [key: string]: {
@@ -269,23 +269,11 @@ const VerseDisplayComponent: React.FC<VerseDisplayComponentProps> = ({
           )}
         </div>
 
-        {/* Verse Image Manager */}
-        {showImageManager && selectedVerse && (
-          <div className="mb-4">
-            <VerseImageManager
-              bookAbbr={selectedBookAbbr}
-              chapter={currentChapter}
-              verse={selectedVerse.verse_number}
-              API_BASE_URL={API_BASE_URL}
-              isCompact={false}
-            />
-          </div>
-        )}
         <div className="verse-container min-h-[120px] flex items-center justify-center px-4 py-2 bg-white rounded-2xl shadow-lg shadow-gray-200/40 border border-gray-100">
           {selectedVerse && (
             <div className={`verse-content ${verseAnimation !== 'none' ? verseAnimation : ''}`}>
               <div className="text-2xl font-bold text-center break-words whitespace-pre-line w-full max-w-full text-black leading-relaxed">
-                {(selectedVerse?.macronized_text || selectedVerse?.text)?.split(' ').map((word, index) => {
+                {(selectedVerse?.macronized_text || selectedVerse?.text)?.split(' ').map((word, index, words) => {
                   const cleanWord = word.replace(/[.,:;?!]$/, '');
                   const normalized = normalizeLatin(cleanWord);
                   const wordInfo = verseAnalysisState.analysis[normalized];
@@ -298,12 +286,12 @@ const VerseDisplayComponent: React.FC<VerseDisplayComponentProps> = ({
                   // Analysis completed animation class
                   const analysisCompleteClass = verseAnalysisState.isAnalysisDone ? 'analysis-complete' : '';
                   
-                  let className = `mx-1 break-words inline-block font-black cursor-pointer transition-all duration-500 ${analysisCompleteClass} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 focus:bg-blue-50`;
+                  let className = `break-words inline-block font-black cursor-pointer transition-all duration-500 ${analysisCompleteClass} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 focus:bg-blue-50 verse-word`;
                   let style: React.CSSProperties = {
                     transformOrigin: 'center',
                     willChange: 'transform',
                     padding: '0.15em 0.2em',
-                    margin: '0 0.1em'
+                    margin: '0'
                   };
                   
                   // Show highlights only if analysis is done and interaction is happening
@@ -344,28 +332,30 @@ const VerseDisplayComponent: React.FC<VerseDisplayComponentProps> = ({
                   }
                   
                   return (
-                    <button
-                      key={index}
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleWordClick(index);
-                        handleGrammarWordClick(cleanWord);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
+                    <React.Fragment key={index}>
+                      <button
+                        type="button"
+                        onClick={(e) => {
                           e.preventDefault();
                           handleWordClick(index);
                           handleGrammarWordClick(cleanWord);
-                        }
-                      }}
-                      className={className}
-                      style={style}
-                      tabIndex={0}
-                      aria-label={`Word: ${word}, Part of speech: ${partOfSpeech}`}
-                    >
-                      {word}
-                    </button>
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleWordClick(index);
+                            handleGrammarWordClick(cleanWord);
+                          }
+                        }}
+                        className={className}
+                        style={style}
+                        tabIndex={0}
+                        aria-label={`Word: ${word}, Part of speech: ${partOfSpeech}`}
+                      >
+                        {word}
+                      </button>
+                      {index < words.length - 1 && <span className="select-all"> </span>}
+                    </React.Fragment>
                   );
                 })}
               </div>
@@ -394,6 +384,19 @@ const VerseDisplayComponent: React.FC<VerseDisplayComponentProps> = ({
             })()}
           </div>
         </AnimatedWrapper>
+
+        {/* Verse Image Manager - Now positioned below the verse and translation */}
+        {showImageManager && selectedVerse && (
+          <div className="mt-4">
+            <VerseImageManager
+              bookAbbr={selectedBookAbbr}
+              chapter={currentChapter}
+              verse={selectedVerse.verse_number}
+              API_BASE_URL={API_BASE_URL}
+              isCompact={false}
+            />
+          </div>
+        )}
       </div>
 
       {/* Play/Pause and Record buttons */}

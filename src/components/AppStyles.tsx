@@ -95,6 +95,20 @@ export const AppStyles: React.FC = () => {
       transform: scale(1.3);
     }
     
+    /* Ensure text selection works properly across word buttons and spaces */
+    .verse-word, .select-all {
+      user-select: text;
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
+    }
+    
+    /* Make sure space spans are selectable and preserve whitespace */
+    .select-all {
+      white-space: pre;
+      display: inline;
+    }
+    
     /* Smooth entrance and exit animations */
     .smooth-entrance {
       animation: smoothEnter 0.3s ease-out;

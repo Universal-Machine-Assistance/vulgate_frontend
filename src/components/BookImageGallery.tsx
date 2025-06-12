@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faImages, 
@@ -12,7 +12,11 @@ import {
   faSearch,
   faTh,
   faList,
-  faSortAmountDown
+  faSortAmountDown,
+  faSearchPlus,
+  faSearchMinus,
+  faUndo,
+  faHand
 } from '@fortawesome/free-solid-svg-icons';
 import { useNavigate } from 'react-router-dom';
 
@@ -55,6 +59,15 @@ const BookImageGallery: React.FC<BookImageGalleryProps> = ({
   const [filterChapter, setFilterChapter] = useState<number | ''>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [availableChapters, setAvailableChapters] = useState<number[]>([]);
+  
+  // Pan and zoom state for full-size image modal
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [lastPan, setLastPan] = useState({ x: 0, y: 0 });
+  const imageRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   
   const navigate = useNavigate();
 
@@ -172,6 +185,86 @@ const BookImageGallery: React.FC<BookImageGalleryProps> = ({
     if (mb > 1) return `${mb.toFixed(1)}MB`;
     return `${kb.toFixed(1)}KB`;
   };
+
+  // Pan and zoom functions
+  const resetImageView = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    setLastPan({ x: 0, y: 0 });
+  };
+
+  const handleZoomIn = () => {
+    setZoom(prev => Math.min(prev * 1.5, 5));
+  };
+
+  const handleZoomOut = () => {
+    setZoom(prev => Math.max(prev / 1.5, 0.5));
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoom > 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging && zoom > 1) {
+      const newPan = {
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y
+      };
+      setPan(newPan);
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (isDragging) {
+      setIsDragging(false);
+      setLastPan(pan);
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1 && zoom > 1) {
+      setIsDragging(true);
+      const touch = e.touches[0];
+      setDragStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (isDragging && e.touches.length === 1 && zoom > 1) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const newPan = {
+        x: touch.clientX - dragStart.x,
+        y: touch.clientY - dragStart.y
+      };
+      setPan(newPan);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (isDragging) {
+      setIsDragging(false);
+      setLastPan(pan);
+    }
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    if (e.deltaY < 0) {
+      handleZoomIn();
+    } else {
+      handleZoomOut();
+    }
+  };
+
+  // Reset pan and zoom when image changes
+  useEffect(() => {
+    resetImageView();
+  }, [selectedImage]);
 
   const ImageGrid = () => (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -414,45 +507,136 @@ const BookImageGallery: React.FC<BookImageGalleryProps> = ({
           )}
         </div>
 
-        {/* Full Size Image Modal */}
+        {/* Enhanced Full Size Image Modal with Pan & Zoom */}
         {selectedImage && (
-          <div className="fixed inset-0 bg-black/90 z-60 flex items-center justify-center p-4">
-            <div className="relative max-w-5xl max-h-full">
+          <div className="fixed inset-0 bg-black/95 z-60 flex items-center justify-center">
+            {/* Top Controls */}
+            <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-20">
+              <div className="flex items-center space-x-2">
+                <div className="bg-black/50 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-sm">
+                  {selectedImage.verse_reference.full_reference}
+                </div>
+                <div className="bg-black/50 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-xs">
+                  {Math.round(zoom * 100)}%
+                </div>
+              </div>
               <button
                 onClick={() => setSelectedImage(null)}
-                className="absolute -top-12 right-0 text-white hover:text-gray-300 text-2xl z-10"
+                className="bg-black/50 backdrop-blur-sm text-white hover:text-gray-300 p-3 rounded-lg transition-colors"
               >
-                <FontAwesomeIcon icon={faTimes} />
+                <FontAwesomeIcon icon={faTimes} size="lg" />
               </button>
+            </div>
+
+            {/* Zoom Controls */}
+            <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-20">
+              <div className="bg-black/50 backdrop-blur-sm rounded-lg p-2 space-y-2">
+                <button
+                  onClick={handleZoomIn}
+                  disabled={zoom >= 5}
+                  className="block w-10 h-10 text-white hover:text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Zoom In"
+                >
+                  <FontAwesomeIcon icon={faSearchPlus} />
+                </button>
+                <button
+                  onClick={handleZoomOut}
+                  disabled={zoom <= 0.5}
+                  className="block w-10 h-10 text-white hover:text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Zoom Out"
+                >
+                  <FontAwesomeIcon icon={faSearchMinus} />
+                </button>
+                <button
+                  onClick={resetImageView}
+                  className="block w-10 h-10 text-white hover:text-purple-300 transition-colors"
+                  title="Reset View"
+                >
+                  <FontAwesomeIcon icon={faUndo} />
+                </button>
+              </div>
+            </div>
+
+            {/* Pan Hint */}
+            {zoom > 1 && (
+              <div className="absolute right-4 top-1/2 transform -translate-y-1/2 z-20">
+                <div className="bg-black/50 backdrop-blur-sm rounded-lg p-3 text-white text-xs max-w-32">
+                  <FontAwesomeIcon icon={faHand} className="mr-2" />
+                  <span className="hidden sm:inline">Drag to pan</span>
+                  <span className="sm:hidden">Drag</span>
+                </div>
+              </div>
+            )}
+
+            {/* Image Container */}
+            <div
+              ref={containerRef}
+              className="w-full h-full flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing"
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onWheel={handleWheel}
+              style={{ cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
+            >
               <img
+                ref={imageRef}
                 src={selectedImage.url}
                 alt={selectedImage.description || selectedImage.filename}
-                className="max-w-full max-h-full object-contain rounded-lg"
+                className="max-w-none h-auto select-none transition-transform duration-100"
+                style={{
+                  transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                  maxHeight: zoom === 1 ? '90vh' : 'none',
+                  maxWidth: zoom === 1 ? '90vw' : 'none',
+                }}
+                draggable={false}
               />
-              <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-4 rounded-b-lg">
+            </div>
+
+            {/* Bottom Controls */}
+            <div className="absolute bottom-4 left-4 right-4 z-20">
+              <div className="bg-black/70 backdrop-blur-sm text-white p-4 rounded-lg">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold">{selectedImage.verse_reference.full_reference}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm sm:text-base truncate">
+                      {selectedImage.verse_reference.full_reference}
+                    </p>
                     {selectedImage.description && (
-                      <p className="text-gray-300 text-sm">{selectedImage.description}</p>
+                      <p className="text-gray-300 text-xs sm:text-sm mt-1 truncate">
+                        {selectedImage.description}
+                      </p>
                     )}
                   </div>
-                  <div className="flex space-x-2">
+                  <div className="flex space-x-2 ml-4 flex-shrink-0">
                     <button
                       onClick={() => handleVerseNavigation(selectedImage)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 sm:px-3 sm:py-2 rounded text-xs sm:text-sm transition-colors"
                     >
-                      Go to Verse
+                      <FontAwesomeIcon icon={faMapMarkerAlt} className="sm:mr-2" />
+                      <span className="hidden sm:inline">Go to Verse</span>
                     </button>
                     <button
                       onClick={() => downloadImage(selectedImage)}
-                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                      className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 sm:px-3 sm:py-2 rounded text-xs sm:text-sm transition-colors"
                     >
-                      Download
+                      <FontAwesomeIcon icon={faDownload} className="sm:mr-2" />
+                      <span className="hidden sm:inline">Download</span>
                     </button>
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Mobile Instructions */}
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none sm:hidden">
+              {zoom === 1 && (
+                <div className="bg-black/50 backdrop-blur-sm text-white text-xs px-3 py-2 rounded-lg opacity-75">
+                  Pinch to zoom • Tap controls to navigate
+                </div>
+              )}
             </div>
           </div>
         )}
