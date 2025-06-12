@@ -456,31 +456,30 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
 
   return (
     <div 
-      className="verse-image-manager bg-slate-800/50 rounded-xl p-4 border border-slate-700"
+      className="verse-image-manager bg-slate-800/50 rounded-lg p-3 border border-slate-700"
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-purple-300 flex items-center">
-          <FontAwesomeIcon icon={faImage} className="mr-2" />
-          Imagines Versus ({bookAbbr} {chapter}:{verse})
-        </h3>
-        <button
-          onClick={() => setShowUploadArea(!showUploadArea)}
-          className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg text-sm transition-colors"
-        >
-          <FontAwesomeIcon icon={faPlus} className="mr-1" />
-          Add Images
-        </button>
-      </div>
+      {/* Only show add images button when no images exist */}
+      {images.length === 0 && !showUploadArea && (
+        <div className="flex justify-center mb-4">
+          <button
+            onClick={() => setShowUploadArea(!showUploadArea)}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg text-sm transition-colors"
+          >
+            <FontAwesomeIcon icon={faPlus} className="mr-1" />
+            Add Images
+          </button>
+        </div>
+      )}
 
       {/* Upload Area */}
       {showUploadArea && (
-        <div className="mb-6 p-4 bg-slate-700/50 rounded-lg border border-slate-600">
-          <div 
-            className={`border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 group ${
+        <div className="mb-4 p-3 bg-slate-700/50 rounded-lg border border-slate-600">
+                      <div 
+              className={`border-2 border-dashed rounded-lg p-4 text-center transition-all duration-200 group ${
               isDragOver 
                 ? 'border-purple-400 bg-purple-500/10 scale-[1.02]' 
                 : 'border-purple-500/50 hover:border-purple-400/70'
