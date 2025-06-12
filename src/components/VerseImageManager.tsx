@@ -72,18 +72,19 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
     fetchVerseImages();
   }, [bookAbbr, chapter, verse]);
 
-  // Auto-open upload area if no images exist when component first loads
+  // Auto-open upload area ONLY if no images exist when component first loads
   useEffect(() => {
-    if (!isLoading && images.length === 0 && !showUploadArea && isInitialMount) {
-      setShowUploadArea(true);
-      setAutoOpenedUpload(true);
-      // Automatically trigger file picker when auto-opened
-      setTimeout(() => {
-        fileInputRef.current?.click();
-      }, 100);
-    }
-    // Reset initial mount flag after first load completes
     if (!isLoading && isInitialMount) {
+      // Only auto-open file picker when there are NO images
+      if (images.length === 0 && !showUploadArea) {
+        setShowUploadArea(true);
+        setAutoOpenedUpload(true);
+        // Automatically trigger file picker when auto-opened
+        setTimeout(() => {
+          fileInputRef.current?.click();
+        }, 100);
+      }
+      // Reset initial mount flag after first load completes
       setIsInitialMount(false);
     }
   }, [isLoading, images.length, showUploadArea, isInitialMount]);
