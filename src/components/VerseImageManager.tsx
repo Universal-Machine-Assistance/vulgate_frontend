@@ -481,7 +481,6 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
               </p>
             </div>
             <input
-              ref={fileInputRef}
               type="file"
               multiple
               accept="image/*"
@@ -489,16 +488,14 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
               className="hidden"
               id="image-upload"
             />
-            <label
-              htmlFor="image-upload"
-              className={`px-4 py-2 rounded-lg cursor-pointer transition-colors inline-block ${
-                isDragOver 
-                  ? 'bg-purple-500 hover:bg-purple-600 text-white' 
-                  : 'bg-purple-600 hover:bg-purple-700 text-white'
-              }`}
-            >
-              Choose Images
-            </label>
+            {!isDragOver && (
+              <label
+                htmlFor="image-upload"
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors inline-block"
+              >
+                Choose Images
+              </label>
+            )}
             {isUploading && (
               <div className="mt-3 flex items-center justify-center">
                 <FontAwesomeIcon icon={faSpinner} className="animate-spin text-purple-400 mr-2" />
@@ -518,7 +515,17 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
       ) : images.length > 0 ? (
         <div className="space-y-4">
           {/* Main Image Container */}
-          <div className="relative bg-slate-900 rounded-lg overflow-hidden border border-slate-600">
+          <div 
+            className={`relative bg-slate-900 rounded-lg overflow-hidden border transition-all duration-200 ${
+              isDragOver 
+                ? 'border-purple-400 ring-2 ring-purple-300/50 bg-purple-500/5' 
+                : 'border-slate-600'
+            }`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
             {/* Main Image - Full Width */}
             <div className="relative aspect-[16/10] max-h-96">
               <img
@@ -526,6 +533,16 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
                 alt={images[currentImageIndex]?.description || images[currentImageIndex]?.filename}
                 className="w-full h-full object-contain bg-slate-800"
               />
+              
+              {/* Drag Overlay */}
+              {isDragOver && (
+                <div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center backdrop-blur-sm">
+                  <div className="text-center">
+                    <FontAwesomeIcon icon={faUpload} className="text-purple-300 text-4xl mb-2" />
+                    <p className="text-purple-200 font-medium">Drop images here!</p>
+                  </div>
+                </div>
+              )}
               
               {/* Navigation Arrows */}
               {images.length > 1 && (
@@ -642,6 +659,26 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
               ))}
             </div>
           )}
+          
+          {/* Add Images Button - Below main display */}
+          <div className="flex justify-center">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={(e) => e.target.files && handleImageUpload(e.target.files)}
+              className="hidden"
+              id="image-upload-main"
+            />
+            <label
+              htmlFor="image-upload-main"
+              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors inline-flex items-center space-x-2"
+            >
+              <FontAwesomeIcon icon={faPlus} size="sm" />
+              <span>Add More Images</span>
+            </label>
+          </div>
         </div>
       ) : (
         <div className="text-center py-8 text-slate-400">
