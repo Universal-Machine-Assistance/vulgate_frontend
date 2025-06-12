@@ -55,6 +55,8 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [autoOpenedUpload, setAutoOpenedUpload] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
+  const [isInitialMount, setIsInitialMount] = useState(true);
+  const [isDragOver, setIsDragOver] = useState(false);
   
   // Pan and zoom state for full-size image modal
   const [zoom, setZoom] = useState(1);
@@ -72,7 +74,7 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
 
   // Auto-open upload area if no images exist when component first loads
   useEffect(() => {
-    if (!isLoading && images.length === 0 && !showUploadArea) {
+    if (!isLoading && images.length === 0 && !showUploadArea && isInitialMount) {
       setShowUploadArea(true);
       setAutoOpenedUpload(true);
       // Automatically trigger file picker when auto-opened
@@ -80,7 +82,11 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
         fileInputRef.current?.click();
       }, 100);
     }
-  }, [isLoading, images.length, showUploadArea]);
+    // Reset initial mount flag after first load completes
+    if (!isLoading && isInitialMount) {
+      setIsInitialMount(false);
+    }
+  }, [isLoading, images.length, showUploadArea, isInitialMount]);
 
   const fetchVerseImages = async () => {
     setIsLoading(true);
@@ -158,6 +164,38 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
       alert(message);
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  // Drag and drop handlers
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set dragOver to false if we're leaving the upload area entirely
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      handleImageUpload(files);
     }
   };
 
@@ -333,6 +371,30 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
     resetImageView();
   }, [currentImageIndex]);
 
+  // Prevent default drag behaviors globally within the component
+  useEffect(() => {
+    const preventDefaults = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    const handleGlobalDrop = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    // Add event listeners to prevent default drag/drop behavior
+    document.addEventListener('dragenter', preventDefaults);
+    document.addEventListener('dragover', preventDefaults);
+    document.addEventListener('drop', handleGlobalDrop);
+
+    return () => {
+      document.removeEventListener('dragenter', preventDefaults);
+      document.removeEventListener('dragover', preventDefaults);
+      document.removeEventListener('drop', handleGlobalDrop);
+    };
+  }, []);
+
   if (isCompact) {
     return (
       <div className="verse-images-compact">
@@ -387,11 +449,34 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
       {/* Upload Area */}
       {showUploadArea && (
         <div className="mb-6 p-4 bg-slate-700/50 rounded-lg border border-slate-600">
-          <div className="border-2 border-dashed border-purple-500/50 rounded-lg p-6 text-center hover:border-purple-400/70 transition-colors group">
-            <FontAwesomeIcon icon={faUpload} className="text-purple-400 text-3xl mb-3 group-hover:text-purple-300 transition-colors" />
-            <div className="opacity-70 group-hover:opacity-100 transition-opacity">
-              <p className="text-slate-400 group-hover:text-slate-300 text-sm mb-3 transition-colors">
-                Drag & drop images here or click below
+          <div 
+            className={`border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 group ${
+              isDragOver 
+                ? 'border-purple-400 bg-purple-500/10 scale-[1.02]' 
+                : 'border-purple-500/50 hover:border-purple-400/70'
+            }`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
+            <FontAwesomeIcon 
+              icon={faUpload} 
+              className={`text-3xl mb-3 transition-all duration-200 ${
+                isDragOver 
+                  ? 'text-purple-300 scale-110' 
+                  : 'text-purple-400 group-hover:text-purple-300'
+              }`} 
+            />
+            <div className={`transition-opacity duration-200 ${
+              isDragOver ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'
+            }`}>
+              <p className={`text-sm mb-3 transition-colors duration-200 ${
+                isDragOver 
+                  ? 'text-slate-200 font-medium' 
+                  : 'text-slate-400 group-hover:text-slate-300'
+              }`}>
+                {isDragOver ? 'Drop images here!' : 'Drag & drop images here or click below'}
               </p>
             </div>
             <input
@@ -405,7 +490,11 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
             />
             <label
               htmlFor="image-upload"
-              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors inline-block"
+              className={`px-4 py-2 rounded-lg cursor-pointer transition-colors inline-block ${
+                isDragOver 
+                  ? 'bg-purple-500 hover:bg-purple-600 text-white' 
+                  : 'bg-purple-600 hover:bg-purple-700 text-white'
+              }`}
             >
               Choose Images
             </label>
