@@ -16,11 +16,15 @@ import AppStyles from './AppStyles';
 
 export const VersePageContainer: React.FC = () => {
   const location = useLocation();
-  const { book: bookParam, chapter: chapterParam, verse: verseParam } = useParams<{
+  const { source: sourceParam, book: bookParam, chapter: chapterParam, verse: verseParam } = useParams<{
+    source: string;
     book: string;
     chapter: string;
     verse: string;
   }>();
+
+  // Extract current source from URL or default to 'bible'
+  const currentSource = sourceParam || 'bible';
 
   // Core navigation and verse data state
   const [books, setBooks] = useState<Book[]>([]);
@@ -156,16 +160,16 @@ export const VersePageContainer: React.FC = () => {
 
   // Navigation handlers that use custom hooks
   const navigateToPreviousVerse = useCallback(() => {
-    navigation.navigateToPreviousVerse(selectedVerse, selectedBookAbbr, currentChapter, setCurrentChapter);
-  }, [navigation.navigateToPreviousVerse, selectedVerse, selectedBookAbbr, currentChapter]);
+    navigation.navigateToPreviousVerse(selectedVerse, currentSource, selectedBookAbbr, currentChapter, setCurrentChapter);
+  }, [navigation.navigateToPreviousVerse, selectedVerse, currentSource, selectedBookAbbr, currentChapter]);
 
   const navigateToNextVerse = useCallback(() => {
-    navigation.navigateToNextVerse(selectedVerse, selectedBookAbbr, currentChapter, verses, chapters, setCurrentChapter);
-  }, [navigation.navigateToNextVerse, selectedVerse, selectedBookAbbr, currentChapter, verses, chapters]);
+    navigation.navigateToNextVerse(selectedVerse, currentSource, selectedBookAbbr, currentChapter, verses, chapters, setCurrentChapter);
+  }, [navigation.navigateToNextVerse, selectedVerse, currentSource, selectedBookAbbr, currentChapter, verses, chapters]);
 
   const handleVerseChange = useCallback((verseNumber: number) => {
-    navigation.handleVerseChange(verseNumber, selectedBookAbbr, currentChapter);
-  }, [navigation.handleVerseChange, selectedBookAbbr, currentChapter]);
+    navigation.handleVerseChange(verseNumber, currentSource, selectedBookAbbr, currentChapter);
+  }, [navigation.handleVerseChange, currentSource, selectedBookAbbr, currentChapter]);
 
   // Enhanced functions that combine multiple hooks
   const handleEnhanceClick = useCallback(async (event: React.MouseEvent) => {
@@ -275,9 +279,9 @@ export const VersePageContainer: React.FC = () => {
     if (parts.length === 2) {
       const book = parts[0];
       const [chapter, verse] = parts[1].split(':');
-      navigation.updateURL(book, parseInt(chapter), parseInt(verse));
+      navigation.updateURL(currentSource, book, parseInt(chapter), parseInt(verse));
     }
-  }, [navigation.updateURL]);
+  }, [navigation.updateURL, currentSource]);
 
   const handleGrammarWordClick = useCallback((word: string) => {
     // Handle grammar word click logic
@@ -285,8 +289,13 @@ export const VersePageContainer: React.FC = () => {
   }, []);
 
   const handleNavigateToOccurrence = useCallback((book: string, chapter: number, verse: number) => {
-    navigation.updateURL(book, chapter, verse);
-  }, [navigation.updateURL]);
+    navigation.updateURL(currentSource, book, chapter, verse);
+  }, [navigation.updateURL, currentSource]);
+
+  // Wrapper for updateURL to match expected signature
+  const updateURLWrapper = useCallback((book: string, chapter: number, verse: number) => {
+    navigation.updateURL(currentSource, book, chapter, verse);
+  }, [navigation.updateURL, currentSource]);
 
   // Helper function for analysis layers
   const analysisResultHasLayers = useCallback((state: typeof verseAnalysis.verseAnalysisState) => {
@@ -391,7 +400,7 @@ export const VersePageContainer: React.FC = () => {
           // Event handlers
           navigateToPreviousVerse={navigateToPreviousVerse}
           navigateToNextVerse={navigateToNextVerse}
-          updateURL={navigation.updateURL}
+          updateURL={updateURLWrapper}
           handleVerseChange={handleVerseChange}
           setIsBookInfoOpen={setIsBookInfoOpen}
           handleWordClick={verseAnalysis.handleWordClick}

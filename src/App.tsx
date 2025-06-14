@@ -18,6 +18,7 @@ import VerseDisplayComponent from './components/VerseDisplayComponent';
 import GrammarBreakdownComponent from './components/GrammarBreakdownComponent';
 import AnalysisColumnComponent from './components/AnalysisColumnComponent';
 import EditingColumnComponent from './components/EditingColumnComponent';
+import SourceDropdown from './components/SourceDropdown';
 import AppStyles from './components/AppStyles';
 import { 
   NameOccurrence, 
@@ -53,7 +54,8 @@ import { createEventHandlerUtils } from './utils/eventHandlerUtils';
 import { createKeyboardUtils } from './utils/keyboardUtils';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSun } from '@fortawesome/free-solid-svg-icons';
-import { API_BASE_URL, BOOK_NAMES, BOOK_ABBREVIATIONS } from './constants/index';
+import { API_BASE_URL, BOOK_NAMES, BOOK_ABBREVIATIONS, TEXT_SOURCES } from './constants/index';
+import { DataServiceFactory } from './utils/dataService';
 import successNotificationSound from './assets/sounds/success_notification.mp3';
 
 // Import Greb logo
@@ -85,6 +87,12 @@ const GrebLogo = require('./GREB LOGO_ with White.png');
 const VersePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Extract source from URL - default to 'bible' for backward compatibility
+  const urlSource = location.pathname.split('/').filter(Boolean)[0];
+  const [currentSource, setCurrentSource] = useState<string>(
+    urlSource && TEXT_SOURCES[urlSource] ? urlSource : 'bible'
+  );
   
   const [books, setBooks] = useState<Book[]>([]); // Initialize with empty array
   const [selectedBookAbbr, setSelectedBookAbbr] = useState<string>("Gn");
@@ -125,8 +133,7 @@ const VersePage: React.FC = () => {
   const [theologicalInterpretation, setTheologicalInterpretation] = useState<string | null>(null);
   const [visitedVerses, setVisitedVerses] = useState<{[key: string]: boolean}>({});
   const [requestQueue, setRequestQueue] = useState<Set<string>>(new Set());
-  const [lastRequestTime, setLastRequestTime] = useState<{ [key: string]: number }>({});
-  const [isVerseLoading, setIsVerseLoading] = useState<boolean>(false);
+  // Removed unused variables: lastRequestTime, setLastRequestTime, isVerseLoading, setIsVerseLoading
   const [currentlyPlayingWordIndex, setCurrentlyPlayingWordIndex] = useState<number | null>(null);
   const [selectedTranslationLang, setSelectedTranslationLang] = useState<string>('en'); // Default to English
   const [isOpenAIAvailable, setIsOpenAIAvailable] = useState<boolean>(false);
@@ -447,9 +454,15 @@ const VersePage: React.FC = () => {
     }
   }, [selectedVerse, selectedBookAbbr, currentChapter]);
 
-  // Check if audio is available for current verse
+  // Check audio availability for current verse
   const checkAudioAvailability = useCallback(async () => {
     if (!selectedVerse) {
+      setAudioAvailable(false);
+      return;
+    }
+    
+    // Skip audio check for Gita content - Gita doesn't have audio files
+    if (currentSource === 'gita') {
       setAudioAvailable(false);
       return;
     }
@@ -467,7 +480,7 @@ const VersePage: React.FC = () => {
       // Suppress network errors for audio checks since backend may not be running
       setAudioAvailable(false);
     }
-  }, [selectedVerse, selectedBookAbbr, currentChapter]);
+  }, [selectedVerse, selectedBookAbbr, currentChapter, currentSource]);
 
   // Consolidated URL handling - parse URL and set initial state
   useEffect(() => {
@@ -475,106 +488,118 @@ const VersePage: React.FC = () => {
     const pathParts = path.split('/').filter(part => part);
     
     if (pathParts.length >= 3) {
-      // URL format: /book/chapter/verse
-      const [bookParam, chapterParam, verseParam] = pathParts;
-      const newBook = bookParam;
-      const newChapter = parseInt(chapterParam) || 1;
-      const newVerseNumber = parseInt(verseParam) || 1;
+      // Check if first part is a source
+      const isSourceBased = TEXT_SOURCES[pathParts[0]];
       
-      // Only update if different to prevent unnecessary re-renders
-      if (selectedBookAbbr !== newBook) {
-        setSelectedBookAbbr(newBook);
-      }
-      if (currentChapter !== newChapter) {
-        setCurrentChapter(newChapter);
+      if (isSourceBased) {
+        // URL format: /source/book/chapter/verse
+        const [sourceParam, bookParam, chapterParam, verseParam] = pathParts;
+        const newSource = sourceParam;
+        const newBook = bookParam;
+        const newChapter = parseInt(chapterParam) || 1;
+        const newVerseNumber = parseInt(verseParam) || 1;
+        
+        // Update source if different
+        if (currentSource !== newSource) {
+          setCurrentSource(newSource);
+        }
+        
+        // Only update if different to prevent unnecessary re-renders
+        if (selectedBookAbbr !== newBook) {
+          setSelectedBookAbbr(newBook);
+        }
+        if (currentChapter !== newChapter) {
+          setCurrentChapter(newChapter);
+        }
+      } else {
+        // Legacy URL format: /book/chapter/verse (default to bible)
+        const [bookParam, chapterParam, verseParam] = pathParts;
+        const newBook = bookParam;
+        const newChapter = parseInt(chapterParam) || 1;
+        const newVerseNumber = parseInt(verseParam) || 1;
+        
+        // Default to bible source for legacy URLs
+        if (currentSource !== 'bible') {
+          setCurrentSource('bible');
+        }
+        
+        // Only update if different to prevent unnecessary re-renders
+        if (selectedBookAbbr !== newBook) {
+          setSelectedBookAbbr(newBook);
+        }
+        if (currentChapter !== newChapter) {
+          setCurrentChapter(newChapter);
+        }
       }
       
       // If verses are already loaded, select the verse immediately
       if (verses.length > 0) {
-        const targetVerse = verses.find(v => v.verse_number === newVerseNumber);
-        if (targetVerse && (!selectedVerse || selectedVerse.verse_number !== newVerseNumber)) {
+        const targetVerseNumber = isSourceBased && pathParts[3] ? parseInt(pathParts[3]) : parseInt(pathParts[2]) || 1;
+        const targetVerse = verses.find(v => v.verse_number === targetVerseNumber);
+        if (targetVerse && (!selectedVerse || selectedVerse.verse_number !== targetVerseNumber)) {
           setSelectedVerse(targetVerse);
         }
       }
     } else if (pathParts.length === 0) {
-      // Root path - default to Genesis 1:1
-      navigate('/Gn/1/1', { replace: true });
+      // Root path - default to Bible Genesis 1:1
+      navigate('/bible/Gn/1/1', { replace: true });
       return;
     }
-  }, [location.pathname, navigate, selectedBookAbbr, currentChapter, verses, selectedVerse]);
+  }, [location.pathname, navigate, selectedBookAbbr, currentChapter, currentSource, verses, selectedVerse]);
 
   // Update URL when navigation changes (only when user manually changes selection)
   const updateURL = useCallback((book: string, chapter: number, verse: number) => {
-    const newPath = `/${book}/${chapter}/${verse}`;
+    const newPath = `/${currentSource}/${book}/${chapter}/${verse}`;
     if (location.pathname !== newPath) {
       navigate(newPath, { replace: true });
     }
-  }, [navigate, location.pathname]);
+  }, [navigate, location.pathname, currentSource]);
 
-  // Fetch books on initial load
+  // Fetch books on initial load - using DataService
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/v1/books/")
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        return res.json();
-      })
+    const dataService = DataServiceFactory.create(currentSource);
+    
+    dataService.getBooks()
       .then((data) => {
-        if (!Array.isArray(data)) {
-          console.error("Expected array of books but got:", data);
-          setBooks([]);
-          return;
-        }
         setBooks(data);
       })
       .catch((err) => {
         console.error("Error fetching books:", err);
         setBooks([]);
       });
-  }, []);
+  }, [currentSource]);
 
-  // Fetch chapters when book changes
+  // Fetch chapters when book changes - using DataService
   useEffect(() => {
     // Don't make the request until we have a valid book abbreviation
     if (!selectedBookAbbr) return;
 
-    fetch(`http://127.0.0.1:8000/api/v1/books/abbr/${selectedBookAbbr}`)
-       .then((res) => res.json())
-       .then((data) => {
-         const chaps = Array.from({ length: data.chapter_count }, (_, i) => i + 1);
-         setChapters(chaps);
+    const dataService = DataServiceFactory.create(currentSource);
+    
+    dataService.getChapters(selectedBookAbbr)
+       .then((chapters) => {
+         setChapters(chapters);
        })
        .catch((err) => console.error("Error fetching chapters:", err));
-  }, [selectedBookAbbr]);
+  }, [selectedBookAbbr, currentSource]);
 
-  // Fetch verses when chapter changes
+  // Fetch verses when chapter changes - using DataService
   useEffect(() => {
     // Ensure we have both a book abbreviation and a valid chapter before fetching verses
     if (!selectedBookAbbr || currentChapter < 1) return;
 
-    fetch(`http://127.0.0.1:8000/api/v1/verses/by-reference/${selectedBookAbbr}/${currentChapter}`)
-       .then((res) => {
-         if (!res.ok) {
-           throw new Error(`HTTP error! status: ${res.status}`);
-         }
-         return res.json();
-       })
+    const dataService = DataServiceFactory.create(currentSource);
+    
+    dataService.getVerses(selectedBookAbbr, currentChapter)
        .then((data) => {
-         // Ensure data is an array before proceeding
-         if (!Array.isArray(data)) {
-           console.warn("Expected array of verses but got:", data);
-           setVerses([]);
-           return;
-         }
-         
          setVerses(data);
          
          // After fetching verses, check if we need to select a specific verse from URL
          const path = location.pathname;
          const pathParts = path.split('/').filter(part => part);
-         if (pathParts.length >= 3) {
-           const [, , verseParam] = pathParts;
+         // Handle both source-based and legacy URLs
+         const verseParam = pathParts.length >= 4 ? pathParts[3] : pathParts[2];
+         if (verseParam) {
            const targetVerseNumber = parseInt(verseParam) || 1;
            const targetVerse = data.find(v => v.verse_number === targetVerseNumber);
            
@@ -593,7 +618,7 @@ const VersePage: React.FC = () => {
          console.error("Error fetching verses:", err);
          setVerses([]);
        });
-  }, [currentChapter, selectedBookAbbr, location.pathname]);
+  }, [currentChapter, selectedBookAbbr, currentSource, location.pathname]);
 
   // Save edited grammar breakdown
   const saveEdit = async () => {
@@ -661,7 +686,7 @@ const VersePage: React.FC = () => {
     if (chapter !== currentChapter) {
       setCurrentChapter(chapter);
     }
-    navigate(`/${book}/${chapter}/${verse}`);
+    navigate(`/${currentSource}/${book}/${chapter}/${verse}`);
   };
 
   // Load queue on component mount
@@ -754,8 +779,8 @@ const VersePage: React.FC = () => {
         const previousChapter = currentChapter - 1;
         
         try {
-          // Fetch the verses for the previous chapter first
-          const response = await fetch(`${API_BASE_URL}/verses/by-reference/${selectedBookAbbr}/${previousChapter}`);
+          // Fetch the verses for the previous chapter first using new unified endpoint
+          const response = await fetch(`${API_BASE_URL}/texts/${currentSource}/${selectedBookAbbr}/${previousChapter}`);
           if (!response.ok) throw new Error('Failed to fetch verses');
           
           const previousChapterVerses = await response.json();
@@ -1441,7 +1466,18 @@ const VersePage: React.FC = () => {
       setCurrentChapter(chapter);
     }
     // URL will be updated by the URL parsing effect
-    navigate(`/${book}/${chapter}/${verse}`);
+    navigate(`/${currentSource}/${book}/${chapter}/${verse}`);
+  };
+
+  // Handle source change
+  const handleSourceChange = (newSource: string) => {
+    setCurrentSource(newSource);
+    // Reset to first book and chapter when switching sources
+    const defaultBook = newSource === 'gita' ? 'a' : 'Gn';
+    setSelectedBookAbbr(defaultBook);
+    setCurrentChapter(1);
+    setSelectedVerse(null); // Clear current verse
+    navigate(`/${newSource}/${defaultBook}/1/1`, { replace: true });
   };
   
   const loadQueue = async () => {
@@ -1683,21 +1719,28 @@ const VersePage: React.FC = () => {
       {/* Inject custom CSS */}
               <AppStyles />
       
-      {/* Header with centered Vulgate icon and text */}
+      {/* Header with source selector and title */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-4">
-          {/* Vulgate Icon - centered with text */}
-          <img 
-            src="/vulgate_icon.png" 
-            alt="Vulgate Icon" 
-            className="w-16 h-16 opacity-90 hover:opacity-100 transition-opacity duration-200"
-            title="Vulgate Clementina"
-          />
+          {/* Dynamic Icon based on source */}
+          <div className="w-16 h-16 flex items-center justify-center text-4xl opacity-90 hover:opacity-100 transition-opacity duration-200">
+            {TEXT_SOURCES[currentSource]?.icon || '📖'}
+          </div>
           <div>
-            <h1 className="text-3xl font-extrabold">VULGATE</h1>
-            <p className="text-gray-600 italic text-sm">VULGATA CLEMENTINA</p>
+            <h1 className="text-3xl font-extrabold">
+              {TEXT_SOURCES[currentSource]?.name.toUpperCase() || 'TEXT READER'}
+            </h1>
+            <p className="text-gray-600 italic text-sm">
+              {TEXT_SOURCES[currentSource]?.displayName}
+            </p>
           </div>
         </div>
+        
+        {/* Source Selector */}
+        <SourceDropdown 
+          currentSource={currentSource}
+          onSourceChange={handleSourceChange}
+        />
       </div>
 
       {/* Main layout - single column for verse, then 2 columns for analysis */}
@@ -1803,6 +1846,9 @@ const VersePage: React.FC = () => {
 const App: React.FC = () => {
   return (
     <Routes>
+      {/* New source-based routes */}
+      <Route path="/:source/:book/:chapter/:verse" element={<VersePage />} />
+      {/* Backward compatibility - default to bible source */}
       <Route path="/:book/:chapter/:verse" element={<VersePage />} />
       <Route path="/" element={<VersePage />} />
     </Routes>

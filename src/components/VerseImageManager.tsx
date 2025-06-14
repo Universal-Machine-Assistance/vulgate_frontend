@@ -348,14 +348,12 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (zoom > 1) {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-    }
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging && zoom > 1) {
+    if (isDragging) {
       const newPan = {
         x: e.clientX - dragStart.x,
         y: e.clientY - dragStart.y
@@ -372,7 +370,7 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 1 && zoom > 1) {
+    if (e.touches.length === 1) {
       setIsDragging(true);
       const touch = e.touches[0];
       setDragStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
@@ -380,7 +378,7 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (isDragging && e.touches.length === 1 && zoom > 1) {
+    if (isDragging && e.touches.length === 1) {
       e.preventDefault();
       const touch = e.touches[0];
       const newPan = {
@@ -408,28 +406,26 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
   };
 
   // Main display pan and zoom functions
-  // Calculate pan boundaries to prevent image from getting lost but allow full viewing
+  // Calculate pan boundaries to allow free movement across the entire image
   const calculatePanBounds = (zoom: number, containerWidth: number, containerHeight: number) => {
     if (!containerWidth || !containerHeight) return { minX: 0, maxX: 0, minY: 0, maxY: 0 };
     
-    // For zoom levels less than 1, allow more generous panning to view the entire image
-    // For zoom levels greater than 1, use standard bounds
+    // Allow much more generous panning bounds for all zoom levels
     const imageWidth = containerWidth * zoom;
     const imageHeight = containerHeight * zoom;
     
     let maxPanX, maxPanY;
     
     if (zoom <= 1) {
-      // When zoomed out, allow panning to see different parts of the image area
-      // Allow moving up to half the container size in each direction
-      maxPanX = containerWidth * 0.4;
-      maxPanY = containerHeight * 0.4;
+      // When zoomed out or at 100%, allow very generous panning 
+      // This allows users to see the entire image area without restriction
+      maxPanX = containerWidth * 1.5; // Much more generous bounds
+      maxPanY = containerHeight * 1.5;
     } else {
-      // When zoomed in, allow panning to see all parts of the scaled image
-      // Plus a small margin to ensure we can see everything
-      const marginFactor = 0.1; // 10% margin
-      maxPanX = Math.max(0, (imageWidth - containerWidth) / 2) + (containerWidth * marginFactor);
-      maxPanY = Math.max(0, (imageHeight - containerHeight) / 2) + (containerHeight * marginFactor);
+      // When zoomed in, calculate how much we can pan to see all parts of the enlarged image
+      // Allow panning to show any part of the scaled image plus generous margin
+      maxPanX = (imageWidth - containerWidth) / 2 + containerWidth * 0.8; // Very generous margin
+      maxPanY = (imageHeight - containerHeight) / 2 + containerHeight * 0.8;
     }
     
     return {
@@ -440,7 +436,7 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
     };
   };
 
-  // Constrain pan within bounds
+  // Constrain pan within very generous bounds - only prevent extreme loss of image
   const constrainPan = (pan: { x: number; y: number }, zoom: number, containerRef: React.RefObject<HTMLDivElement>) => {
     if (!containerRef.current) return pan;
     
@@ -479,7 +475,7 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
         x: e.clientX - mainDragStart.x,
         y: e.clientY - mainDragStart.y
       };
-      // Apply constraints to prevent image from getting lost
+      // Apply very loose constraints - only prevent extreme loss of image
       const constrainedPan = constrainPan(newPan, mainZoom, mainContainerRef);
       setMainPan(constrainedPan);
     }
@@ -508,7 +504,7 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
         x: touch.clientX - mainDragStart.x,
         y: touch.clientY - mainDragStart.y
       };
-      // Apply constraints to prevent image from getting lost
+      // Apply very loose constraints - only prevent extreme loss of image
       const constrainedPan = constrainPan(newPan, mainZoom, mainContainerRef);
       setMainPan(constrainedPan);
     }
@@ -672,9 +668,8 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
               {/* Main Image - Full Width with Pan & Zoom */}
               <div 
                 ref={mainContainerRef}
-                className="relative aspect-[4/3] h-[500px] cursor-grab active:cursor-grabbing"
+                className="relative aspect-[4/3] h-[500px] cursor-grab active:cursor-grabbing overflow-hidden"
                 style={{ 
-                  overflow: mainZoom <= 1 ? 'visible' : 'hidden', // Allow overflow when zoomed out to show full image
                   cursor: isMainDragging ? 'grabbing' : 'grab'
                 }}
                 onMouseDown={handleMainMouseDown}
@@ -685,32 +680,20 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
                 onTouchMove={handleMainTouchMove}
                 onTouchEnd={handleMainTouchEnd}
               >
-                <motion.img
+                <img
                   ref={mainImageRef}
                   src={images[currentImageIndex]?.url}
                   alt={images[currentImageIndex]?.description || images[currentImageIndex]?.filename}
-                  className="w-full h-full bg-slate-800 select-none"
+                  className="w-full h-full bg-slate-800 select-none transition-transform duration-75 ease-out"
                   style={{
                     transformOrigin: 'center center',
-                    objectFit: mainZoom <= 1 ? 'contain' : 'cover', // Use contain when zoomed out to show full image
+                    transform: `scale(${mainZoom}) translate(${mainPan.x}px, ${mainPan.y}px)`,
+                    objectFit: 'contain', // Always contain to show full image
                     objectPosition: 'center',
                     width: '100%',
                     height: '100%'
                   }}
-                  animate={{
-                    opacity: 1,
-                    scale: mainZoom,
-                    x: mainPan.x / mainZoom,
-                    y: mainPan.y / mainZoom
-                  }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 30,
-                    mass: 0.8
-                  }}
                   key={images[currentImageIndex]?.id}
-                  initial={{ opacity: 1, scale: 1 }}
                   draggable={false}
                 />
                 
@@ -1074,20 +1057,20 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
 
       {/* Enhanced Full Size Image Modal with Pan & Zoom */}
       {selectedImage && (
-        <div className="fixed inset-0 bg-black/95 z-60 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black z-60 flex items-center justify-center">
           {/* Top Controls */}
           <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-20">
             <div className="flex items-center space-x-2">
-              <div className="bg-black/50 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-sm">
+              <div className="bg-black/80 rounded-lg px-3 py-2 text-white text-sm">
                 {bookAbbr} {chapter}:{verse}
               </div>
-              <div className="bg-black/50 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-xs">
+              <div className="bg-black/80 rounded-lg px-3 py-2 text-white text-xs">
                 {Math.round(zoom * 100)}%
               </div>
             </div>
             <button
               onClick={() => setSelectedImage(null)}
-              className="bg-black/50 backdrop-blur-sm text-white hover:text-gray-300 p-3 rounded-lg transition-colors"
+              className="bg-black/80 text-white hover:text-gray-300 p-3 rounded-lg transition-colors"
             >
               <FontAwesomeIcon icon={faTimes} size="lg" />
             </button>
@@ -1095,7 +1078,7 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
 
           {/* Zoom Controls */}
           <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-20">
-            <div className="bg-black/50 backdrop-blur-sm rounded-lg p-2 space-y-2">
+            <div className="bg-black/80 rounded-lg p-2 space-y-2">
               <button
                 onClick={handleZoomIn}
                 disabled={zoom >= 5}
@@ -1125,7 +1108,7 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
           {/* Pan Hint */}
           {zoom > 1 && (
             <div className="absolute right-4 top-1/2 transform -translate-y-1/2 z-20">
-              <div className="bg-black/50 backdrop-blur-sm rounded-lg p-3 text-white text-xs max-w-32">
+              <div className="bg-black/80 rounded-lg p-3 text-white text-xs max-w-32">
                 <FontAwesomeIcon icon={faHand} className="mr-2" />
                 <span className="hidden sm:inline">Trahe ad movendum</span>
                                   <span className="sm:hidden">Trahe</span>
@@ -1141,7 +1124,7 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
                   goToPreviousImage();
                   setSelectedImage(images[currentImageIndex > 0 ? currentImageIndex - 1 : images.length - 1]);
                 }}
-                className="absolute left-4 bottom-1/2 transform translate-y-1/2 bg-black/50 backdrop-blur-sm text-white hover:text-purple-300 p-3 rounded-lg transition-colors z-20"
+                className="absolute left-4 bottom-1/2 transform translate-y-1/2 bg-black/80 text-white hover:text-purple-300 p-3 rounded-lg transition-colors z-20"
                 title="Previous image"
               >
                 <FontAwesomeIcon icon={faChevronLeft} size="lg" />
@@ -1151,7 +1134,7 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
                   goToNextImage();
                   setSelectedImage(images[currentImageIndex < images.length - 1 ? currentImageIndex + 1 : 0]);
                 }}
-                className="absolute right-4 bottom-1/2 transform translate-y-1/2 bg-black/50 backdrop-blur-sm text-white hover:text-purple-300 p-3 rounded-lg transition-colors z-20"
+                className="absolute right-4 bottom-1/2 transform translate-y-1/2 bg-black/80 text-white hover:text-purple-300 p-3 rounded-lg transition-colors z-20"
                 title="Next image"
               >
                 <FontAwesomeIcon icon={faChevronRight} size="lg" />
@@ -1162,7 +1145,7 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
           {/* Image Container */}
           <div
             ref={containerRef}
-            className="w-full h-full flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing"
+            className="w-full h-full flex items-center justify-center overflow-hidden"
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -1171,20 +1154,20 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
             onWheel={handleWheel}
-            style={{ cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
+            style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
           >
             <img
               ref={imageRef}
               src={selectedImage.url}
               alt={selectedImage.description || selectedImage.filename}
-              className="max-w-none select-none transition-transform duration-100"
+              className="max-w-none max-h-none select-none transition-transform duration-75 ease-out"
               style={{
-                transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
-                width: zoom === 1 ? '100vw' : 'auto',
-                height: zoom === 1 ? '100vh' : 'auto',
-                maxHeight: zoom === 1 ? '100vh' : 'none',
-                maxWidth: zoom === 1 ? '100vw' : 'none',
+                transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+                transformOrigin: 'center center',
+                width: '100vw',
+                height: '100vh',
                 objectFit: 'contain',
+                objectPosition: 'center'
               }}
               draggable={false}
             />
@@ -1192,7 +1175,7 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
 
           {/* Bottom Controls */}
           <div className="absolute bottom-4 left-4 right-4 z-20">
-            <div className="bg-black/70 backdrop-blur-sm text-white p-4 rounded-lg">
+            <div className="bg-black/80 text-white p-4 rounded-lg">
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-sm sm:text-base truncate">
@@ -1205,7 +1188,7 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
                   )}
                 </div>
                 {images.length > 1 && (
-                  <div className="ml-4 flex-shrink-0 bg-black/50 px-3 py-1 rounded-full text-sm">
+                  <div className="ml-4 flex-shrink-0 bg-black/60 px-3 py-1 rounded-full text-sm">
                     {currentImageIndex + 1} / {images.length}
                   </div>
                 )}
@@ -1216,7 +1199,7 @@ const VerseImageManager: React.FC<VerseImageManagerProps> = ({
           {/* Mobile Instructions */}
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none sm:hidden">
             {zoom === 1 && (
-              <div className="bg-black/50 backdrop-blur-sm text-white text-xs px-3 py-2 rounded-lg opacity-75">
+              <div className="bg-black/80 text-white text-xs px-3 py-2 rounded-lg opacity-75">
                 Pinch to zoom • Swipe to navigate
               </div>
             )}

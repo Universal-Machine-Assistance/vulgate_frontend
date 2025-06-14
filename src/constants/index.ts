@@ -191,6 +191,9 @@ export const BOOK_NAMES: { [key: string]: string } = {
 };
 
 // Add icons to the library
+// Re-export source configurations
+export { TEXT_SOURCES, GITA_CHAPTERS, GITA_ICONS, getSourceColor } from '../constants';
+
 export const initializeFontAwesome = () => {
   library.add(
     faLanguage, 
