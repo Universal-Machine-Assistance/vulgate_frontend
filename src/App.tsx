@@ -499,7 +499,19 @@ const VersePage: React.FC = () => {
         const newChapter = parseInt(chapterParam) || 1;
         const newVerseNumber = parseInt(verseParam) || 1;
         
-        // Update source if different
+        // Validate book identifier for the source
+        if (newSource === 'gita' && newBook !== 'a') {
+          console.warn(`Invalid Gita URL: book should be "a", got "${newBook}". Redirecting...`);
+          navigate(`/gita/a/${newChapter}/${newVerseNumber}`, { replace: true });
+          return;
+        }
+        if (newSource === 'bible' && newBook === 'a') {
+          console.warn(`Invalid Bible URL: book should not be "a", got "${newBook}". Redirecting to Genesis...`);
+          navigate(`/bible/Gn/${newChapter}/${newVerseNumber}`, { replace: true });
+          return;
+        }
+        
+        // Update source first, then book and chapter
         if (currentSource !== newSource) {
           setCurrentSource(newSource);
         }
@@ -587,6 +599,16 @@ const VersePage: React.FC = () => {
   useEffect(() => {
     // Ensure we have both a book abbreviation and a valid chapter before fetching verses
     if (!selectedBookAbbr || currentChapter < 1) return;
+
+    // Validate that the book abbreviation matches the current source
+    if (currentSource === 'gita' && selectedBookAbbr !== 'a') {
+      console.warn(`Invalid Gita book identifier: ${selectedBookAbbr} (should be "a")`);
+      return;
+    }
+    if (currentSource === 'bible' && selectedBookAbbr === 'a') {
+      console.warn(`Invalid Bible book identifier: ${selectedBookAbbr} (should not be "a")`);
+      return;
+    }
 
     const dataService = DataServiceFactory.create(currentSource);
     
