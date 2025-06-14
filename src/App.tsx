@@ -511,17 +511,16 @@ const VersePage: React.FC = () => {
           return;
         }
         
-        // Update source first, then book and chapter
-        if (currentSource !== newSource) {
-          setCurrentSource(newSource);
-        }
+        // Update all state together to prevent race conditions
+        const needsSourceUpdate = currentSource !== newSource;
+        const needsBookUpdate = selectedBookAbbr !== newBook;
+        const needsChapterUpdate = currentChapter !== newChapter;
         
-        // Only update if different to prevent unnecessary re-renders
-        if (selectedBookAbbr !== newBook) {
-          setSelectedBookAbbr(newBook);
-        }
-        if (currentChapter !== newChapter) {
-          setCurrentChapter(newChapter);
+        if (needsSourceUpdate || needsBookUpdate || needsChapterUpdate) {
+          // Use React 18's automatic batching by updating all state together
+          if (needsSourceUpdate) setCurrentSource(newSource);
+          if (needsBookUpdate) setSelectedBookAbbr(newBook);
+          if (needsChapterUpdate) setCurrentChapter(newChapter);
         }
       } else {
         // Legacy URL format: /book/chapter/verse (default to bible)
@@ -601,12 +600,13 @@ const VersePage: React.FC = () => {
     if (!selectedBookAbbr || currentChapter < 1) return;
 
     // Validate that the book abbreviation matches the current source
+    // If there's a mismatch, it likely means state is still synchronizing, so skip this render
     if (currentSource === 'gita' && selectedBookAbbr !== 'a') {
-      console.warn(`Invalid Gita book identifier: ${selectedBookAbbr} (should be "a")`);
+      console.warn(`Invalid Gita book identifier: ${selectedBookAbbr} (should be "a") - state may be synchronizing`);
       return;
     }
     if (currentSource === 'bible' && selectedBookAbbr === 'a') {
-      console.warn(`Invalid Bible book identifier: ${selectedBookAbbr} (should not be "a")`);
+      console.warn(`Invalid Bible book identifier: ${selectedBookAbbr} (should not be "a") - state may be synchronizing`);
       return;
     }
 
